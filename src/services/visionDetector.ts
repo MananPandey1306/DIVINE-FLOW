@@ -500,6 +500,8 @@ export class VisionDetector {
           return [];
         })()
       );
+      // Multi-Scale Tiled Pass for distant occluded persons
+      localPromises.push(this.runMultiScaleScan(video, width, height));
     } else if (this.isObjectDetectorReady && this.objectDetector) {
       localPromises.push(
         (async () => {
@@ -523,7 +525,7 @@ export class VisionDetector {
 
     if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
       this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
+      this.activeEngines = "BlazeFace + COCO-SSD Multi-Scale";
     }
 
     this.densityEstimate = this.estimateDensityGrid(refined, width, height);
@@ -568,6 +570,7 @@ export class VisionDetector {
           return [];
         })()
       );
+      localPromises.push(this.runMultiScaleScan(source, width, height));
     } else if (this.isObjectDetectorReady && this.objectDetector) {
       localPromises.push(
         (async () => {
@@ -591,11 +594,66 @@ export class VisionDetector {
 
     if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
       this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
+      this.activeEngines = "BlazeFace + COCO-SSD Multi-Scale";
     }
 
     this.densityEstimate = this.estimateDensityGrid(refined, width, height);
     return this.applyNMS(refined);
+  }
+
+  private async runMultiScaleScan(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, width: number, height: number): Promise<DetectedEntity[]> {
+    if (!this.cocoModel || this.sensitivity === "low") {
+      return [];
+    }
+    const extra: DetectedEntity[] = [];
+    const tiles = [
+      { sx: 0, sy: 0, sw: width * 0.60, sh: height * 0.85, ox: 0, oy: 0 },
+      { sx: width * 0.40, sy: 0, sw: width * 0.60, sh: height * 0.85, ox: width * 0.40, oy: 0 },
+    ];
+
+    for (const tile of tiles) {
+      try {
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = 416;
+        cropCanvas.height = 416;
+        const ctx = cropCanvas.getContext('2d');
+        if (!ctx) continue;
+        ctx.drawImage(source, tile.sx, tile.sy, tile.sw, tile.sh, 0, 0, 416, 416);
+
+        const preds = await this.cocoModel.detect(cropCanvas, 50, this.cocoConfidenceThreshold);
+        const persons = preds.filter((p: any) => p.class === "person");
+
+        for (const p of persons) {
+          const [cx, cy, cw, ch] = p.bbox;
+          const rx = tile.ox + (cx / 416) * tile.sw;
+          const ry = tile.oy + (cy / 416) * tile.sh;
+          const rw = (cw / 416) * tile.sw;
+          const rh = (ch / 416) * tile.sh;
+          const centerX = rx + rw / 2;
+          const centerY = ry + rh / 2;
+          const headRadius = Math.max(6, Math.min(38, rw * 0.25));
+
+          extra.push({
+            id: 0,
+            x: centerX,
+            y: centerY,
+            width: rw,
+            height: rh,
+            headX: centerX,
+            headY: ry + Math.min(rh * 0.16, 32),
+            headRadius,
+            confidence: Math.round(p.score * 100) / 100,
+            label: 'Person',
+            trackAge: 10,
+            distanceTier: rh > height * 0.28 ? 'close' : rh > height * 0.08 ? 'mid' : 'far',
+            viewOrientation: 'rear_or_side',
+            rowCategory: centerY < height * 0.38 ? 'background' : centerY < height * 0.68 ? 'midground' : 'foreground',
+            detectionSource: 'coco_body',
+          });
+        }
+      } catch {}
+    }
+    return extra;
   }
 
   private refineCrowdDetections(detections: DetectedEntity[]): DetectedEntity[] {
