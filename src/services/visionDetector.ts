@@ -1,5 +1,5 @@
 // Vityarthi Crowd Vision Engine
-// Tiered Detection: BlazeFace (close-range) → COCO-SSD (crowd bodies) → Grid Density Estimation (500+ crowds)
+// Multi-Tier Ensemble: BlazeFace (dense crowd faces) + COCO-SSD (body & posture) + YOLO-CROWD Backend
 
 import * as tf from "@tensorflow/tfjs";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
@@ -73,8 +73,8 @@ export class VisionDetector {
   private sensitivity: "low" | "medium" | "high" | "ultra" | "max" = "ultra";
   private detectionMode: "mediapipe_crowd_face" | "mediapipe_short" | "hybrid" | "cloud_api" = "hybrid";
   private viewMode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid" = "hybrid";
-  private confidenceThreshold = 0.28;
-  private cocoConfidenceThreshold = 0.18;
+  private confidenceThreshold = 0.22;
+  private cocoConfidenceThreshold = 0.15;
   private countMultiplier = 1.0;
   private manualOffset = 0;
 
@@ -91,7 +91,7 @@ export class VisionDetector {
   private isCocoLoading = false;
   private isCocoReady = false;
 
-  private modelStatus = "Loading AI Models...";
+  private modelStatus = "Loading AI Vision Engines...";
   private activeEngines = "Initializing...";
   private remoteApiError = false;
   private lastInferenceTime = 0;
@@ -131,61 +131,91 @@ export class VisionDetector {
       const y = 30 + Math.random() * 330;
       const isFar = y < 120;
       const isMid = y >= 120 && y < 240;
-      this.simulatedCrowdNodes.push({ x: 30 + Math.random() * 580, y, vx: (Math.random() - 0.5) * 1.0, vy: (Math.random() - 0.5) * 0.7, size: isFar ? 12 : isMid ? 22 : 34, distance: isFar ? "far" : isMid ? "mid" : "close" });
+      this.simulatedCrowdNodes.push({
+        x: 30 + Math.random() * 580,
+        y,
+        vx: (Math.random() - 0.5) * 1.0,
+        vy: (Math.random() - 0.5) * 0.7,
+        size: isFar ? 12 : isMid ? 22 : 34,
+        distance: isFar ? "far" : isMid ? "mid" : "close",
+      });
     }
   }
 
   private async loadBlazeFace() {
     if (this.isBlazefaceLoading || this.isBlazefaceReady) return;
     this.isBlazefaceLoading = true;
-    this.modelStatus = "Loading BlazeFace AI...";
     try {
-      const wasmFileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
+      const wasmFileset = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      );
       const modelUrl = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
-      const opts = (mode: string) => ({ baseOptions: { modelAssetPath: modelUrl, delegate: "GPU" as any }, runningMode: mode as any, minDetectionConfidence: this.confidenceThreshold, minSuppressionThreshold: 0.3 });
-      const optsCPU = (mode: string) => ({ baseOptions: { modelAssetPath: modelUrl, delegate: "CPU" as any }, runningMode: mode as any, minDetectionConfidence: this.confidenceThreshold, minSuppressionThreshold: 0.3 });
-      try { this.blazefaceVideoDetector = await FaceDetector.createFromOptions(wasmFileset, opts("VIDEO")); }
-      catch { this.blazefaceVideoDetector = await FaceDetector.createFromOptions(wasmFileset, optsCPU("VIDEO")); }
-      try { this.blazefaceImageDetector = await FaceDetector.createFromOptions(wasmFileset, opts("IMAGE")); }
-      catch { try { this.blazefaceImageDetector = await FaceDetector.createFromOptions(wasmFileset, optsCPU("IMAGE")); } catch (e) { console.warn("BlazeFace image detector unavailable:", e); } }
+      const opts = (mode: string) => ({
+        baseOptions: { modelAssetPath: modelUrl, delegate: "GPU" as any },
+        runningMode: mode as any,
+        minDetectionConfidence: this.confidenceThreshold,
+        minSuppressionThreshold: 0.25,
+      });
+      const optsCPU = (mode: string) => ({
+        baseOptions: { modelAssetPath: modelUrl, delegate: "CPU" as any },
+        runningMode: mode as any,
+        minDetectionConfidence: this.confidenceThreshold,
+        minSuppressionThreshold: 0.25,
+      });
+      try {
+        this.blazefaceVideoDetector = await FaceDetector.createFromOptions(wasmFileset, opts("VIDEO"));
+      } catch {
+        this.blazefaceVideoDetector = await FaceDetector.createFromOptions(wasmFileset, optsCPU("VIDEO"));
+      }
+      try {
+        this.blazefaceImageDetector = await FaceDetector.createFromOptions(wasmFileset, opts("IMAGE"));
+      } catch {
+        try {
+          this.blazefaceImageDetector = await FaceDetector.createFromOptions(wasmFileset, optsCPU("IMAGE"));
+        } catch (e) {
+          console.warn("BlazeFace image detector unavailable:", e);
+        }
+      }
       this.isBlazefaceReady = true;
-      this.modelStatus = "BlazeFace fallback ready";
-      this.activeEngines = "COCO-SSD primary; BlazeFace fallback";
-      console.log("✅ BlazeFace loaded");
+      this.modelStatus = "BlazeFace + COCO Ensemble Ready";
+      this.activeEngines = "BlazeFace Neural Face + COCO-SSD Body";
+      console.log("✅ BlazeFace crowd face detector loaded");
     } catch (e) {
-      console.error("BlazeFace load failed:", e);
-      this.modelStatus = "BlazeFace unavailable - COCO-SSD only";
-    } finally { this.isBlazefaceLoading = false; }
+      console.warn("BlazeFace load failed:", e);
+    } finally {
+      this.isBlazefaceLoading = false;
+    }
   }
 
   private async loadObjectDetector() {
     if (this.isObjectDetectorLoading || this.isObjectDetectorReady || !ObjectDetector) return;
     this.isObjectDetectorLoading = true;
-    this.modelStatus = "Loading Object Detector...";
     try {
-      const wasmFileset = await FilesetResolver.forVisionTasks("/mediapipe/wasm");
+      const wasmFileset = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+      );
       const modelUrl = "https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite";
       const opts = (mode: string) => ({
         baseOptions: { modelAssetPath: modelUrl, delegate: "GPU" as any },
         runningMode: mode as any,
-        scoreThreshold: this.confidenceThreshold,
+        scoreThreshold: this.cocoConfidenceThreshold,
         categoryAllowlist: ["person"],
       });
       const optsCPU = (mode: string) => ({
         baseOptions: { modelAssetPath: modelUrl, delegate: "CPU" as any },
         runningMode: mode as any,
-        scoreThreshold: this.confidenceThreshold,
+        scoreThreshold: this.cocoConfidenceThreshold,
         categoryAllowlist: ["person"],
       });
-      try { this.objectDetector = await ObjectDetector.createFromOptions(wasmFileset, opts("VIDEO")); }
-      catch { this.objectDetector = await ObjectDetector.createFromOptions(wasmFileset, optsCPU("VIDEO")); }
+      try {
+        this.objectDetector = await ObjectDetector.createFromOptions(wasmFileset, opts("VIDEO"));
+      } catch {
+        this.objectDetector = await ObjectDetector.createFromOptions(wasmFileset, optsCPU("VIDEO"));
+      }
       this.isObjectDetectorReady = true;
-      this.modelStatus = "Object Detector fallback ready";
-      this.activeEngines = "COCO-SSD primary; Object Detector fallback";
       console.log("✅ MediaPipe ObjectDetector loaded");
     } catch (e) {
       console.warn("ObjectDetector load failed:", e);
-      this.modelStatus = "Object Detector unavailable - fallback detection active";
     } finally {
       this.isObjectDetectorLoading = false;
     }
@@ -198,36 +228,58 @@ export class VisionDetector {
       await tf.ready();
       this.cocoModel = await cocoSsd.load({ base: "mobilenet_v2" });
       this.isCocoReady = true;
+      this.modelStatus = "Ensemble AI Ready (BlazeFace + COCO-SSD)";
+      this.activeEngines = "BlazeFace + COCO-SSD Local AI";
       console.log("✅ COCO-SSD crowd body detector loaded");
-      if (!this.modelStatus.includes("BlazeFace") && !this.modelStatus.includes("Object Detector")) this.modelStatus = "COCO-SSD Crowd Engine Ready";
-    } catch (e) { console.warn("COCO-SSD load failed:", e); }
-    finally { this.isCocoLoading = false; }
+    } catch (e) {
+      console.warn("COCO-SSD load failed:", e);
+    } finally {
+      this.isCocoLoading = false;
+    }
   }
 
-  public setCallback(callback: (count: number, stats: VisionStats) => void) { this.onCountUpdate = callback; }
+  public setCallback(callback: (count: number, stats: VisionStats) => void) {
+    this.onCountUpdate = callback;
+  }
+
   public setDetectionApiUrl(apiUrl: string) {
-    const next = apiUrl.trim();
+    const next = (apiUrl || '').trim();
     this.remoteDetectionApiUrl = next;
     this.detectionMode = next ? 'cloud_api' : 'hybrid';
     this.remoteApiError = false;
   }
-  public getSensitivity() { return this.sensitivity; }
-  public getDetectionMode() { return this.detectionMode; }
+
+  public getSensitivity() {
+    return this.sensitivity;
+  }
+
+  public getDetectionMode() {
+    return this.detectionMode;
+  }
 
   public setSensitivity(s: "low" | "medium" | "high" | "ultra" | "max") {
     this.sensitivity = s;
-    if (s === "low") { this.confidenceThreshold = 0.45; this.cocoConfidenceThreshold = 0.25; }
-    else if (s === "medium") { this.confidenceThreshold = 0.35; this.cocoConfidenceThreshold = 0.20; }
-    else if (s === "high") { this.confidenceThreshold = 0.28; this.cocoConfidenceThreshold = 0.18; }
-    else if (s === "ultra") { this.confidenceThreshold = 0.22; this.cocoConfidenceThreshold = 0.15; }
-    else if (s === "max") { this.confidenceThreshold = 0.18; this.cocoConfidenceThreshold = 0.12; }
+    if (s === "low") { this.confidenceThreshold = 0.40; this.cocoConfidenceThreshold = 0.25; }
+    else if (s === "medium") { this.confidenceThreshold = 0.32; this.cocoConfidenceThreshold = 0.20; }
+    else if (s === "high") { this.confidenceThreshold = 0.25; this.cocoConfidenceThreshold = 0.16; }
+    else if (s === "ultra") { this.confidenceThreshold = 0.18; this.cocoConfidenceThreshold = 0.12; }
+    else if (s === "max") { this.confidenceThreshold = 0.14; this.cocoConfidenceThreshold = 0.09; }
     try { this.blazefaceVideoDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
     try { this.blazefaceImageDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
   }
 
-  public setDetectionMode(mode: "mediapipe_crowd_face" | "mediapipe_short" | "hybrid" | "cloud_api") { this.detectionMode = mode; }
-  public setViewMode(mode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid") { this.viewMode = mode; }
-  public setCalibration(multiplier: number, offset: number) { this.countMultiplier = multiplier; this.manualOffset = offset; }
+  public setDetectionMode(mode: "mediapipe_crowd_face" | "mediapipe_short" | "hybrid" | "cloud_api") {
+    this.detectionMode = mode;
+  }
+
+  public setViewMode(mode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid") {
+    this.viewMode = mode;
+  }
+
+  public setCalibration(multiplier: number, offset: number) {
+    this.countMultiplier = multiplier;
+    this.manualOffset = offset;
+  }
 
   public startSimulation(canvas: HTMLCanvasElement) {
     this.stop();
@@ -250,7 +302,10 @@ export class VisionDetector {
     this.canvasElement = canvas;
     this.mode = "webcam";
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode },
+        audio: false,
+      });
       video.srcObject = stream;
       await video.play();
       canvas.width = video.videoWidth || 1280;
@@ -258,9 +313,8 @@ export class VisionDetector {
       this.isRunning = true;
       this.trackedEntities = [];
       this.trackMisses.clear();
-      this.lastNeuralDetections = [];
       this.countHistory = [];
-      this.lastInferenceTime = 0;
+      this.lastTrackingTime = 0;
       this.loopVideo();
       return true;
     } catch (err) {
@@ -274,9 +328,12 @@ export class VisionDetector {
     this.stop();
     this.videoElement = video;
     this.canvasElement = canvas;
-    this.mode = "webcam"; // Treat it as a continuous stream like webcam
+    this.mode = "webcam";
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: { cursor: "always" as any, displaySurface: "monitor" } as any,
+        audio: false,
+      });
       video.srcObject = stream;
       await video.play();
       canvas.width = video.videoWidth || 1280;
@@ -284,17 +341,9 @@ export class VisionDetector {
       this.isRunning = true;
       this.trackedEntities = [];
       this.trackMisses.clear();
-      this.lastNeuralDetections = [];
-      this.lastInferenceTime = 0;
       this.countHistory = [];
       this.lastTrackingTime = 0;
       this.loopVideo();
-      
-      // Handle the user clicking 'Stop sharing' on the browser's floating bar
-      stream.getVideoTracks()[0].onended = () => {
-        this.startSimulation(canvas);
-      };
-      
       return true;
     } catch (err) {
       console.warn("Screen capture failed:", err);
@@ -344,7 +393,10 @@ export class VisionDetector {
   public stop() {
     this.isRunning = false;
     this.lastTrackingTime = 0;
-    if (this.animFrameId) { cancelAnimationFrame(this.animFrameId); this.animFrameId = null; }
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = null;
+    }
     if (this.videoElement?.srcObject) {
       const stream = this.videoElement.srcObject as MediaStream;
       stream.getTracks().forEach((t) => t.stop());
@@ -367,8 +419,15 @@ export class VisionDetector {
         this.isInferencing = true;
         const infStart = performance.now();
         this.runVideoInference(video, width, height)
-          .then((raw) => { this.lastInferenceDurationMs = Math.round(performance.now() - infStart); this.lastNeuralDetections = raw; this.isInferencing = false; })
-          .catch((err) => { console.warn("Inference error:", err); this.isInferencing = false; });
+          .then((raw) => {
+            this.lastInferenceDurationMs = Math.round(performance.now() - infStart);
+            this.lastNeuralDetections = raw;
+            this.isInferencing = false;
+          })
+          .catch((err) => {
+            console.warn("Inference error:", err);
+            this.isInferencing = false;
+          });
       }
       this.trackedEntities = this.smoothAndTrack(this.lastNeuralDetections);
       this.renderOverlays(ctx, width, height);
@@ -383,26 +442,61 @@ export class VisionDetector {
     const detections: DetectedEntity[] = [];
     const ts = performance.now();
 
+    // 1. Try remote YOLO detection if configured
     if (this.remoteDetectionApiUrl) {
       const remote = await this.callRemoteDetectionApi(video, width, height);
       if (remote && remote.length) return remote;
     }
 
+    // 2. Ensemble Multi-Model Local Inference (BlazeFace + COCO-SSD in parallel)
+    const localPromises: Promise<DetectedEntity[]>[] = [];
+
+    if (this.isBlazefaceReady && this.blazefaceVideoDetector) {
+      localPromises.push(
+        (async () => {
+          try {
+            const r = this.blazefaceVideoDetector.detectForVideo(video, ts);
+            if (r?.detections) return this.parseBlazeFaceDetections(r.detections, width, height);
+          } catch {}
+          return [];
+        })()
+      );
+    }
+
     if (this.isCocoReady && this.cocoModel) {
-      try {
-        const preds = await this.cocoModel.detect(video, 100, this.cocoConfidenceThreshold);
-        detections.push(...this.parseCocoPredictions(preds.filter((p: any) => p.class === "person"), width, height));
-      } catch (e) { console.warn("COCO inference error:", e); }
+      localPromises.push(
+        (async () => {
+          try {
+            const preds = await this.cocoModel.detect(video, 100, this.cocoConfidenceThreshold);
+            return this.parseCocoPredictions(preds.filter((p: any) => p.class === "person"), width, height);
+          } catch (e) {
+            console.warn("COCO video error:", e);
+          }
+          return [];
+        })()
+      );
     } else if (this.isObjectDetectorReady && this.objectDetector) {
-      try {
-        const r = this.objectDetector.detectForVideo(video, ts);
-        if (r?.detections) detections.push(...this.parseObjectDetections(r.detections, width, height));
-      } catch (e) { console.warn("ObjectDetector inference error:", e); }
-    } else if (this.isBlazefaceReady && this.blazefaceVideoDetector) {
-      try {
-        const r = this.blazefaceVideoDetector.detectForVideo(video, ts);
-        if (r?.detections) detections.push(...this.parseBlazeFaceDetections(r.detections, width, height));
-      } catch {}
+      localPromises.push(
+        (async () => {
+          try {
+            const r = this.objectDetector.detectForVideo(video, ts);
+            if (r?.detections) return this.parseObjectDetections(r.detections, width, height);
+          } catch (e) {
+            console.warn("ObjectDetector video error:", e);
+          }
+          return [];
+        })()
+      );
+    }
+
+    const results = await Promise.all(localPromises);
+    results.forEach((list) => {
+      if (Array.isArray(list)) detections.push(...list);
+    });
+
+    if (detections.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = "Local Ensemble AI (BlazeFace + COCO-SSD)";
+      this.activeEngines = "BlazeFace + COCO-SSD Local AI";
     }
 
     const refined = this.refineCrowdDetections(detections);
@@ -413,26 +507,63 @@ export class VisionDetector {
   private async runImageDetection(source: HTMLImageElement | HTMLCanvasElement, width: number, height: number): Promise<DetectedEntity[]> {
     const detections: DetectedEntity[] = [];
 
+    // 1. Try remote YOLO detection if configured
     if (this.remoteDetectionApiUrl) {
       const remote = await this.callRemoteDetectionApi(source, width, height);
       if (remote && remote.length) return remote;
     }
 
+    // 2. Ensemble Multi-Model Local Inference (BlazeFace + COCO-SSD in parallel)
+    const localPromises: Promise<DetectedEntity[]>[] = [];
+
+    if (this.isBlazefaceReady && this.blazefaceImageDetector) {
+      localPromises.push(
+        (async () => {
+          try {
+            const r = this.blazefaceImageDetector.detect(source);
+            if (r?.detections) return this.parseBlazeFaceDetections(r.detections, width, height);
+          } catch (e) {
+            console.warn("BlazeFace image error:", e);
+          }
+          return [];
+        })()
+      );
+    }
+
     if (this.isCocoReady && this.cocoModel) {
-      try {
-        const preds = await this.cocoModel.detect(source, 100, this.cocoConfidenceThreshold);
-        detections.push(...this.parseCocoPredictions(preds.filter((p: any) => p.class === "person"), width, height));
-      } catch (e) { console.warn("COCO image error:", e); }
+      localPromises.push(
+        (async () => {
+          try {
+            const preds = await this.cocoModel.detect(source, 100, this.cocoConfidenceThreshold);
+            return this.parseCocoPredictions(preds.filter((p: any) => p.class === "person"), width, height);
+          } catch (e) {
+            console.warn("COCO image error:", e);
+          }
+          return [];
+        })()
+      );
     } else if (this.isObjectDetectorReady && this.objectDetector) {
-      try {
-        const r = this.objectDetector.detect(source);
-        if (r?.detections) detections.push(...this.parseObjectDetections(r.detections, width, height));
-      } catch (e) { console.warn("ObjectDetector image error:", e); }
-    } else if (this.isBlazefaceReady && this.blazefaceImageDetector) {
-      try {
-        const r = this.blazefaceImageDetector.detect(source);
-        if (r?.detections) detections.push(...this.parseBlazeFaceDetections(r.detections, width, height));
-      } catch (e) { console.warn("BlazeFace image error:", e); }
+      localPromises.push(
+        (async () => {
+          try {
+            const r = this.objectDetector.detect(source);
+            if (r?.detections) return this.parseObjectDetections(r.detections, width, height);
+          } catch (e) {
+            console.warn("ObjectDetector image error:", e);
+          }
+          return [];
+        })()
+      );
+    }
+
+    const results = await Promise.all(localPromises);
+    results.forEach((list) => {
+      if (Array.isArray(list)) detections.push(...list);
+    });
+
+    if (detections.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = "Local Ensemble AI (BlazeFace + COCO-SSD)";
+      this.activeEngines = "BlazeFace + COCO-SSD Local AI";
     }
 
     const refined = this.refineCrowdDetections(detections);
@@ -440,74 +571,58 @@ export class VisionDetector {
     return this.applyNMS(refined);
   }
 
-  private estimateCrowdDensityFromCanvas(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, width: number, height: number): number {
-    const sampleWidth = 160;
-    const sampleHeight = Math.max(90, Math.round((sampleWidth * height) / Math.max(1, width)));
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = sampleWidth;
-    tempCanvas.height = sampleHeight;
-    const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-    if (!tempCtx) return 0;
-    tempCtx.drawImage(source, 0, 0, sampleWidth, sampleHeight);
-    const imageData = tempCtx.getImageData(0, 0, sampleWidth, sampleHeight).data;
-    let colorPixels = 0;
-    let totalPixels = 0;
-
-    for (let i = 0; i < imageData.length; i += 4) {
-      const r = imageData[i];
-      const g = imageData[i + 1];
-      const b = imageData[i + 2];
-      const a = imageData[i + 3];
-      if (a < 40) continue;
-      totalPixels += 1;
-      const max = Math.max(r, g, b);
-      const min = Math.min(r, g, b);
-      const saturation = max === 0 ? 0 : (max - min) / max;
-      const brightness = (r + g + b) / 3;
-      const isHumanTone = brightness > 25 && brightness < 230 && saturation > 0.18 && (Math.abs(r - g) > 20 || Math.abs(g - b) > 20 || Math.abs(r - b) > 20);
-      if (isHumanTone || (saturation > 0.28 && brightness > 30 && brightness < 220)) {
-        colorPixels += 1;
-      }
-    }
-
-    const ratio = totalPixels ? colorPixels / totalPixels : 0;
-    if (ratio < 0.08) return 0;
-    return Math.min(4000, Math.round((ratio * sampleWidth * sampleHeight) / 9));
-  }
-
   private refineCrowdDetections(detections: DetectedEntity[]): DetectedEntity[] {
     const filtered = detections.filter((d) => {
       const area = d.width * d.height;
-      const acceptableSize = area >= 70 && (d.headRadius >= 4 || d.distanceTier !== 'far');
-      const confidenceGuard = d.confidence >= 0.12 || d.distanceTier === 'close' || d.confidence >= 0.08;
+      const acceptableSize = area >= 30 && (d.headRadius >= 3 || d.distanceTier !== 'far');
+      const confidenceGuard = d.confidence >= 0.08 || d.distanceTier === 'close';
       return acceptableSize && confidenceGuard;
     });
 
+    const faces = filtered.filter(d => d.detectionSource === 'blazeface');
+    const bodies = filtered.filter(d => d.detectionSource !== 'blazeface');
+
     const merged: DetectedEntity[] = [];
-    for (const item of filtered.sort((a, b) => b.confidence - a.confidence)) {
-      const near = merged.find((candidate) => {
-        const dx = candidate.headX - item.headX;
-        const dy = candidate.headY - item.headY;
-        const radius = Math.max(16, (candidate.headRadius + item.headRadius) * 0.75);
-        return Math.hypot(dx, dy) <= radius;
+    const matchedFaceIndices = new Set<number>();
+
+    // For each body, link face detection if overlapping
+    bodies.forEach((b) => {
+      let matchedFaceIdx = -1;
+      let minFaceDist = 99999;
+      faces.forEach((f, fIdx) => {
+        if (matchedFaceIndices.has(fIdx)) return;
+        const inHorizontal = f.headX >= b.x - b.width * 0.65 && f.headX <= b.x + b.width * 0.65;
+        const inVertical = f.headY >= b.y - b.height * 0.70 && f.headY <= b.y + b.height * 0.2;
+        const dist = Math.hypot(f.headX - b.headX, f.headY - b.headY);
+        if (inHorizontal && inVertical && dist < minFaceDist) {
+          minFaceDist = dist;
+          matchedFaceIdx = fIdx;
+        }
       });
 
-      if (!near) {
-        merged.push(item);
-        continue;
+      if (matchedFaceIdx >= 0) {
+        matchedFaceIndices.add(matchedFaceIdx);
+        const f = faces[matchedFaceIdx];
+        merged.push({
+          ...b,
+          headX: f.headX,
+          headY: f.headY,
+          headRadius: Math.max(f.headRadius, b.headRadius),
+          landmarks: f.landmarks,
+          confidence: Math.max(b.confidence, f.confidence),
+          viewOrientation: f.viewOrientation || b.viewOrientation,
+        });
+      } else {
+        merged.push(b);
       }
+    });
 
-      const updated = {
-        ...near,
-        headX: (near.headX * 0.5 + item.headX * 0.5),
-        headY: (near.headY * 0.5 + item.headY * 0.5),
-        headRadius: Math.max(near.headRadius, item.headRadius),
-        confidence: Math.max(near.confidence, item.confidence),
-        trackAge: Math.max(near.trackAge, item.trackAge),
-      };
-      const idx = merged.indexOf(near);
-      merged[idx] = updated;
-    }
+    // For faces with no matching body (e.g., seated behind desk, crowd face), add them as independent detections
+    faces.forEach((f, fIdx) => {
+      if (!matchedFaceIndices.has(fIdx)) {
+        merged.push(f);
+      }
+    });
 
     return merged;
   }
@@ -534,13 +649,13 @@ export class VisionDetector {
 
       if (!response.ok) {
         this.remoteApiError = true;
-        this.modelStatus = `Remote API error (${response.status})`;
+        this.modelStatus = `Local AI Active (Remote ${response.status})`;
         return null;
       }
       const data = await response.json();
       if (data?.error) {
         this.remoteApiError = true;
-        this.modelStatus = "Remote API model unavailable";
+        this.modelStatus = "Local AI Active (Backend error fallback)";
         return null;
       }
 
@@ -562,28 +677,28 @@ export class VisionDetector {
 
       const formatted: DetectedEntity[] = detectionsFromPayload.map((item: any, idx: number) => {
         const box = item?.bbox ?? item?.box ?? item?.coordinates ?? item?.xyxy ?? item?.position ?? null;
-        const x = Number(item?.x ?? item?.center_x ?? item?.cx ?? item?.centerX ?? box?.[0] ?? 0);
-        const y = Number(item?.y ?? item?.center_y ?? item?.cy ?? item?.centerY ?? box?.[1] ?? 0);
-        const rawWidth = item?.width ?? item?.w ?? (item?.x2 !== undefined ? Number(item.x2) - x : box ? Number(box[2]) - x : 0);
-        const rawHeight = item?.height ?? item?.h ?? (item?.y2 !== undefined ? Number(item.y2) - y : box ? Number(box[3]) - y : 0);
-        const w = Number(rawWidth);
-        const h = Number(rawHeight);
+        const x = Number(item?.x ?? item?.center_x ?? item?.cx ?? item?.centerX ?? (box ? (box[0] + box[2]) / 2 : 0));
+        const y = Number(item?.y ?? item?.center_y ?? item?.cy ?? item?.centerY ?? (box ? (box[1] + box[3]) / 2 : 0));
+        const rawWidth = item?.width ?? item?.w ?? (box ? Number(box[2]) - Number(box[0]) : 36);
+        const rawHeight = item?.height ?? item?.h ?? (box ? Number(box[3]) - Number(box[1]) : 64);
+        const w = Math.max(16, Number(rawWidth));
+        const h = Math.max(24, Number(rawHeight));
 
         return {
           id: idx + 1,
           x: Number.isFinite(x) ? x : width / 2,
           y: Number.isFinite(y) ? y : height / 2,
-          width: Number.isFinite(w) && w > 0 ? w : 24,
-          height: Number.isFinite(h) && h > 0 ? h : 32,
+          width: w,
+          height: h,
           headX: Number.isFinite(x) ? x : width / 2,
-          headY: Number.isFinite(y) ? y : height / 2,
-          headRadius: Math.max(6, Math.min(24, (Number.isFinite(w) && w > 0 ? w : 24) * 0.2)),
+          headY: Number.isFinite(y) ? y - h * 0.35 : height / 2,
+          headRadius: Math.max(8, Math.min(28, w * 0.28)),
           confidence: Number(item?.confidence ?? item?.score ?? 0.8),
           label: `Person #${idx + 1}`,
           trackAge: 10,
-          distanceTier: (Number.isFinite(h) && h > height * 0.2 ? 'close' : Number.isFinite(h) && h > height * 0.08 ? 'mid' : 'far') as any,
+          distanceTier: (h > height * 0.25 ? 'close' : h > height * 0.08 ? 'mid' : 'far') as any,
           viewOrientation: 'rear_or_side',
-          rowCategory: (Number.isFinite(y) && y < height * 0.38 ? 'background' : Number.isFinite(y) && y < height * 0.68 ? 'midground' : 'foreground') as any,
+          rowCategory: (y < height * 0.38 ? 'background' : y < height * 0.68 ? 'midground' : 'foreground') as any,
           detectionSource: 'coco_body' as const,
         };
       });
@@ -600,37 +715,13 @@ export class VisionDetector {
         this.remoteApiError = false;
         this.modelStatus = "YOLO-CROWD API active";
         this.activeEngines = "YOLO-CROWD remote API";
-        const syntheticDetections: DetectedEntity[] = Array.from({ length: Math.min(600, Math.max(1, Math.round(count))) }, (_, idx) => {
-          const col = idx % 18;
-          const row = Math.floor(idx / 18);
-          const x = width * ((col + 0.5) / 18);
-          const y = height * ((row + 0.5) / 18);
-          return {
-            id: idx + 1,
-            x,
-            y,
-            width: 22,
-            height: 32,
-            headX: x,
-            headY: y,
-            headRadius: 10,
-            confidence: 0.8,
-            label: `Person #${idx + 1}`,
-            trackAge: 10,
-            distanceTier: y < height * 0.3 ? 'close' : y < height * 0.7 ? 'mid' : 'far',
-            viewOrientation: 'rear_or_side',
-            rowCategory: y < height * 0.38 ? 'background' : y < height * 0.68 ? 'midground' : 'foreground',
-            detectionSource: 'coco_body' as const,
-          };
-        });
         this.densityEstimate = Math.round(count);
-        return syntheticDetections;
       }
 
       return null;
     } catch {
       this.remoteApiError = true;
-      this.modelStatus = "Remote API unreachable; using local fallback";
+      this.modelStatus = "Local AI Active (Remote offline)";
       return null;
     }
   }
@@ -670,7 +761,7 @@ export class VisionDetector {
           width: bw,
           height: bh,
           headX: cx,
-          headY: by + bh * 0.22,
+          headY: by + bh * 0.18,
           headRadius,
           confidence: Math.round(score * 100) / 100,
           label: `Person #${idx + 1}`,
@@ -694,17 +785,40 @@ export class VisionDetector {
       const by = Math.max(0, isNorm ? box.originY * height : box.originY);
       const bw = Math.max(10, isNorm ? box.width * width : box.width);
       const bh = Math.max(10, isNorm ? box.height * height : box.height);
-      const cx = bx + bw / 2, cy = by + bh / 2;
+      const cx = bx + bw / 2;
+      const cy = by + bh / 2;
       const headRadius = Math.max(8, Math.max(bw, bh) * 0.48);
       const distanceTier: "close" | "mid" | "far" = bw > width * 0.14 ? "close" : bw < width * 0.04 ? "far" : "mid";
       const landmarks: FacialLandmark[] = [];
       if (det.keypoints?.length > 0) {
         const names = ["right_eye", "left_eye", "nose", "mouth", "right_ear", "left_ear"] as const;
         det.keypoints.forEach((kp: any, ki: number) => {
-          landmarks.push({ x: kp.x <= 1.0 ? kp.x * width : kp.x, y: kp.y <= 1.0 ? kp.y * height : kp.y, score: kp.score ?? 0.9, name: names[ki] || `lm_${ki}` });
+          landmarks.push({
+            x: kp.x <= 1.0 ? kp.x * width : kp.x,
+            y: kp.y <= 1.0 ? kp.y * height : kp.y,
+            score: kp.score ?? 0.9,
+            name: names[ki] || `lm_${ki}`,
+          });
         });
       }
-      return { id: idx + 1, x: cx, y: cy + bh * 0.5, width: bw * 2, height: bh * 4, headX: cx, headY: cy, headRadius, confidence: Math.round(score * 100) / 100, label: `Person #${idx + 1}`, trackAge: 10, distanceTier, viewOrientation: "frontal" as const, rowCategory: (cy < height * 0.38 ? "background" : cy < height * 0.68 ? "midground" : "foreground") as any, landmarks, detectionSource: "blazeface" as const };
+      return {
+        id: idx + 1,
+        x: cx,
+        y: cy + bh * 1.5,
+        width: Math.max(28, bw * 2.2),
+        height: Math.max(38, bh * 3.8),
+        headX: cx,
+        headY: cy,
+        headRadius,
+        confidence: Math.round(score * 100) / 100,
+        label: `Person #${idx + 1}`,
+        trackAge: 10,
+        distanceTier,
+        viewOrientation: "frontal" as const,
+        rowCategory: (cy < height * 0.38 ? "background" : cy < height * 0.68 ? "midground" : "foreground") as any,
+        landmarks,
+        detectionSource: "blazeface" as const,
+      };
     }).filter(Boolean) as DetectedEntity[];
   }
 
@@ -713,13 +827,30 @@ export class VisionDetector {
       .filter((p: any) => p.score >= this.cocoConfidenceThreshold)
       .map((p: any, idx: number) => {
         const [bx, by, bw, bh] = p.bbox;
-        const cx = bx + bw / 2, cy = by + bh / 2;
-        return { id: idx + 1, x: cx, y: cy, width: bw, height: bh, headX: cx, headY: by + bh * 0.15, headRadius: Math.max(6, Math.min(50, bw * 0.25)), confidence: Math.round(p.score * 100) / 100, label: `Person #${idx + 1}`, trackAge: 10, distanceTier: (bh > height * 0.35 ? "close" : bh > height * 0.10 ? "mid" : "far") as any, viewOrientation: "rear_or_side" as const, rowCategory: (cy < height * 0.38 ? "background" : cy < height * 0.68 ? "midground" : "foreground") as any, detectionSource: "coco_body" as const };
+        const cx = bx + bw / 2;
+        const cy = by + bh / 2;
+        return {
+          id: idx + 1,
+          x: cx,
+          y: cy,
+          width: bw,
+          height: bh,
+          headX: cx,
+          headY: by + Math.min(bh * 0.16, 32),
+          headRadius: Math.max(7, Math.min(45, bw * 0.25)),
+          confidence: Math.round(p.score * 100) / 100,
+          label: `Person #${idx + 1}`,
+          trackAge: 10,
+          distanceTier: (bh > height * 0.32 ? "close" : bh > height * 0.09 ? "mid" : "far") as any,
+          viewOrientation: "rear_or_side" as const,
+          rowCategory: (cy < height * 0.38 ? "background" : cy < height * 0.68 ? "midground" : "foreground") as any,
+          detectionSource: "coco_body" as const,
+        };
       })
       .filter(Boolean) as DetectedEntity[];
   }
 
-  private applyNMS(detections: DetectedEntity[], iouThreshold = 0.42): DetectedEntity[] {
+  private applyNMS(detections: DetectedEntity[], iouThreshold = 0.45): DetectedEntity[] {
     detections.sort((a, b) => b.confidence - a.confidence);
     const accepted: DetectedEntity[] = [];
     for (const cand of detections) {
@@ -731,7 +862,10 @@ export class VisionDetector {
         const kr = Math.max(kept.headRadius, 8);
         const [kx1, ky1, kx2, ky2] = [kept.headX - kr, kept.headY - kr, kept.headX + kr, kept.headY + kr];
         if (cand.distanceTier === "far" && kept.distanceTier === "far") {
-          if (Math.hypot(kept.headX - cand.headX, kept.headY - cand.headY) < 12) { suppressed = true; break; }
+          if (Math.hypot(kept.headX - cand.headX, kept.headY - cand.headY) < 14) {
+            suppressed = true;
+            break;
+          }
           continue;
         }
         const interW = Math.max(0, Math.min(cx2, kx2) - Math.max(cx1, kx1));
@@ -740,7 +874,10 @@ export class VisionDetector {
         if (interArea === 0) continue;
         const keptArea = (kx2 - kx1) * (ky2 - ky1);
         const iou = interArea / (candArea + keptArea - interArea || 1);
-        if (iou > iouThreshold) { suppressed = true; break; }
+        if (iou > iouThreshold) {
+          suppressed = true;
+          break;
+        }
       }
       if (!suppressed) accepted.push(cand);
     }
@@ -792,7 +929,6 @@ export class VisionDetector {
       }
     });
 
-    // Keep a track alive briefly through detector jitter or partial occlusion.
     this.trackedEntities.forEach((previous, index) => {
       if (used.has(index)) return;
       const missed = (this.trackMisses.get(previous.id) ?? 0) + 1;
@@ -810,7 +946,7 @@ export class VisionDetector {
   private computeFinalCount(): number {
     const base = this.trackedEntities.length;
     const recentAverage = this.countHistory.length ? Math.round(this.countHistory.reduce((a, b) => a + b, 0) / this.countHistory.length) : base;
-    const finalCount = Math.round(base * 0.65 + recentAverage * 0.35);
+    const finalCount = Math.round(base * 0.70 + recentAverage * 0.30);
     return Math.max(0, Math.round(finalCount * this.countMultiplier + this.manualOffset));
   }
 
@@ -821,29 +957,94 @@ export class VisionDetector {
 
   private renderEntities(ctx: CanvasRenderingContext2D, entities: DetectedEntity[], viewType: string) {
     entities.forEach((entity) => {
-      const { headX: hX, headY: hY, headRadius: hR, distanceTier, detectionSource } = entity;
-      const color = detectionSource === "blazeface" ? "#00d2ff" : detectionSource === "coco_body" ? "#34d399" : detectionSource === "simulated" ? "#a78bfa" : "#f59e0b";
+      const { headX: hX, headY: hY, headRadius: hR, distanceTier, detectionSource, width: eW, height: eH, x: eX, y: eY } = entity;
+      const color = detectionSource === "blazeface" ? "#00d2ff" : detectionSource === "coco_body" ? "#10b981" : detectionSource === "simulated" ? "#a78bfa" : "#38bdf8";
       const lw = distanceTier === "far" ? 1.2 : distanceTier === "mid" ? 1.6 : 2.0;
-      if (viewType === "dots_only") { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(hX, hY, Math.max(3, hR * 0.35), 0, Math.PI * 2); ctx.fill(); return; }
-      const bW = Math.max(20, hR * 2.2), bH = Math.max(26, hR * 2.8);
-      const bX = hX - bW / 2, bY = hY - bH / 2;
-      const cLen = Math.min(9, Math.max(3, bW * 0.22));
-      ctx.fillStyle = `${color}12`; ctx.fillRect(bX, bY, bW, bH);
-      ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.beginPath();
-      ctx.moveTo(bX, bY + cLen); ctx.lineTo(bX, bY); ctx.lineTo(bX + cLen, bY);
-      ctx.moveTo(bX + bW - cLen, bY); ctx.lineTo(bX + bW, bY); ctx.lineTo(bX + bW, bY + cLen);
-      ctx.moveTo(bX, bY + bH - cLen); ctx.lineTo(bX, bY + bH); ctx.lineTo(bX + cLen, bY + bH);
-      ctx.moveTo(bX + bW - cLen, bY + bH); ctx.lineTo(bX + bW, bY + bH); ctx.lineTo(bX + bW, bY + bH - cLen);
-      ctx.stroke();
-      ctx.fillStyle = color; ctx.beginPath(); ctx.arc(hX, hY, 2, 0, Math.PI * 2); ctx.fill();
-      if (entity.landmarks?.length && (viewType === "landmarks" || viewType === "hybrid" || viewType === "reticles")) {
-        entity.landmarks.forEach((lm) => { ctx.fillStyle = "#00d2ff"; ctx.beginPath(); ctx.arc(lm.x, lm.y, distanceTier === "far" ? 1.2 : 2, 0, Math.PI * 2); ctx.fill(); });
+
+      if (viewType === "dots_only") {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(hX, hY, Math.max(3, hR * 0.35), 0, Math.PI * 2);
+        ctx.fill();
+        return;
       }
+
+      // Calculate bounding box based on entity dimensions
+      let bW = 0;
+      let bH = 0;
+      let bX = 0;
+      let bY = 0;
+
+      if (eW > 0 && eH > 0 && detectionSource !== 'blazeface') {
+        bW = eW;
+        bH = eH;
+        bX = (eX ?? hX) - bW / 2;
+        bY = (eY ?? hY) - bH / 2;
+      } else {
+        bW = Math.max(24, hR * 2.4);
+        bH = Math.max(28, hR * 2.8);
+        bX = hX - bW / 2;
+        bY = hY - bH / 2;
+      }
+
+      const cLen = Math.min(10, Math.max(4, bW * 0.22));
+
+      // Subtle fill
+      ctx.fillStyle = `${color}14`;
+      ctx.fillRect(bX, bY, bW, bH);
+
+      // Corner reticle brackets
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      // Top-left
+      ctx.moveTo(bX, bY + cLen);
+      ctx.lineTo(bX, bY);
+      ctx.lineTo(bX + cLen, bY);
+      // Top-right
+      ctx.moveTo(bX + bW - cLen, bY);
+      ctx.lineTo(bX + bW, bY);
+      ctx.lineTo(bX + bW, bY + cLen);
+      // Bottom-left
+      ctx.moveTo(bX, bY + bH - cLen);
+      ctx.lineTo(bX, bY + bH);
+      ctx.lineTo(bX + cLen, bY + bH);
+      // Bottom-right
+      ctx.moveTo(bX + bW - cLen, bY + bH);
+      ctx.lineTo(bX + bW, bY + bH);
+      ctx.lineTo(bX + bW, bY + bH - cLen);
+      ctx.stroke();
+
+      // Center head point
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(hX, hY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Landmarks if present
+      if (entity.landmarks?.length && (viewType === "landmarks" || viewType === "hybrid" || viewType === "reticles")) {
+        entity.landmarks.forEach((lm) => {
+          ctx.fillStyle = "#00d2ff";
+          ctx.beginPath();
+          ctx.arc(lm.x, lm.y, distanceTier === "far" ? 1.2 : 2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      }
+
+      // Confidence badge
       if (distanceTier !== "far" && viewType !== "dots_only") {
         const badge = `${Math.round(entity.confidence * 100)}%`;
-        ctx.fillStyle = "rgba(7,13,29,0.88)"; ctx.strokeStyle = color; ctx.lineWidth = 0.8;
-        ctx.beginPath(); ctx.roundRect(bX, bY - 14, 28, 12, 2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle = "#fff"; ctx.font = "bold 7.5px monospace"; ctx.fillText(badge, bX + 4, bY - 4);
+        const badgeY = Math.max(14, bY - 4);
+        ctx.fillStyle = "rgba(7, 13, 29, 0.90)";
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.roundRect(bX, badgeY - 11, 30, 12, 3);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 8px monospace";
+        ctx.fillText(badge, bX + 4, badgeY - 2);
       }
     });
   }
@@ -856,21 +1057,49 @@ export class VisionDetector {
       const hx = (e.headX / width) * hW, hy = (e.headY / height) * hH;
       const r = Math.max(10, (e.headRadius / width) * hW * 3.5);
       const g = this.heatmapCtx!.createRadialGradient(hx, hy, 0, hx, hy, r);
-      g.addColorStop(0, "rgba(255, 42, 95, 0.9)"); g.addColorStop(0.4, "rgba(245, 158, 11, 0.6)"); g.addColorStop(0.8, "rgba(0, 210, 255, 0.25)"); g.addColorStop(1, "rgba(0, 210, 255, 0)");
-      this.heatmapCtx!.fillStyle = g; this.heatmapCtx!.beginPath(); this.heatmapCtx!.arc(hx, hy, r, 0, Math.PI * 2); this.heatmapCtx!.fill();
+      g.addColorStop(0, "rgba(255, 42, 95, 0.9)");
+      g.addColorStop(0.4, "rgba(245, 158, 11, 0.6)");
+      g.addColorStop(0.8, "rgba(0, 210, 255, 0.25)");
+      g.addColorStop(1, "rgba(0, 210, 255, 0)");
+      this.heatmapCtx!.fillStyle = g;
+      this.heatmapCtx!.beginPath();
+      this.heatmapCtx!.arc(hx, hy, r, 0, Math.PI * 2);
+      this.heatmapCtx!.fill();
     });
-    ctx.save(); ctx.globalAlpha = 0.48; ctx.drawImage(this.heatmapCanvas, 0, 0, width, height); ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.48;
+    ctx.drawImage(this.heatmapCanvas, 0, 0, width, height);
+    ctx.restore();
   }
 
   private renderTelemetryHUD(ctx: CanvasRenderingContext2D, width: number, height: number, count: number) {
-    ctx.fillStyle = "rgba(4,8,19,0.88)"; ctx.fillRect(0, 0, width, 28);
-    const eng = this.remoteApiError ? "LOCAL FALLBACK" : this.detectionMode === "cloud_api" && this.activeEngines.includes("YOLO") ? "YOLO-CROWD API" : this.isCocoReady ? "COCO-SSD PERSON" : this.isObjectDetectorReady ? "OBJECT DETECTOR" : this.isBlazefaceReady ? "BLAZEFACE FALLBACK" : "LOADING";
-    ctx.fillStyle = "#00d2ff"; ctx.font = "bold 10px monospace";
+    ctx.fillStyle = "rgba(4, 8, 19, 0.88)";
+    ctx.fillRect(0, 0, width, 28);
+    const eng = !this.remoteApiError && this.detectionMode === "cloud_api" && this.activeEngines.includes("YOLO")
+      ? "YOLO-CROWD API"
+      : this.isBlazefaceReady && this.isCocoReady
+      ? "HYBRID AI (BLAZEFACE + COCO)"
+      : this.isCocoReady
+      ? "COCO-SSD PERSON"
+      : this.isBlazefaceReady
+      ? "BLAZEFACE AI"
+      : "NEURAL ENGINE";
+
+    ctx.fillStyle = "#00d2ff";
+    ctx.font = "bold 10px monospace";
     ctx.fillText(`${eng} // ${this.lastInferenceDurationMs}ms // HEADCOUNT: ${count}`, 12, 18);
-    ctx.fillStyle = "#fbbf24"; ctx.font = "9px monospace";
-    ctx.fillText(`[${this.sensitivity.toUpperCase()}] ${this.modelStatus}`, Math.max(width - 380, width * 0.5), 18);
-    ctx.fillStyle = "#ff3366"; ctx.beginPath(); ctx.arc(width - 38, 14, 4, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 9px monospace"; ctx.fillText("LIVE", width - 30, 18);
+
+    ctx.fillStyle = "#fbbf24";
+    ctx.font = "9px monospace";
+    ctx.fillText(`[${this.sensitivity.toUpperCase()}] ${this.modelStatus}`, Math.max(width - 400, width * 0.46), 18);
+
+    ctx.fillStyle = "#ff3366";
+    ctx.beginPath();
+    ctx.arc(width - 38, 14, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 9px monospace";
+    ctx.fillText("LIVE", width - 30, 18);
   }
 
   private loopSimulation = () => {
@@ -879,18 +1108,44 @@ export class VisionDetector {
     if (!ctx) return;
     const width = this.canvasElement.width, height = this.canvasElement.height;
     const bg = ctx.createLinearGradient(0, 0, 0, height);
-    bg.addColorStop(0, "#080e1a"); bg.addColorStop(1, "#04080f");
-    ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = "rgba(0, 210, 255, 0.06)"; ctx.lineWidth = 1;
+    bg.addColorStop(0, "#080e1a");
+    bg.addColorStop(1, "#04080f");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "rgba(0, 210, 255, 0.06)";
+    ctx.lineWidth = 1;
     for (let x = 0; x < width; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
     for (let y = 0; y < height; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
     this.trackedEntities = [];
     this.simulatedCrowdNodes.forEach((node, idx) => {
-      node.x += node.vx; node.y += node.vy;
+      node.x += node.vx;
+      node.y += node.vy;
       if (node.x < 25 || node.x > width - 25) node.vx *= -1;
       if (node.y < 30 || node.y > height - 30) node.vy *= -1;
       const bW = node.size * 1.3, bH = node.size * 2.1;
-      this.trackedEntities.push({ id: idx + 1, x: node.x, y: node.y, width: bW, height: bH, headX: node.x, headY: node.y - bH * 0.28, headRadius: bW * 0.28, confidence: 0.88 + (idx % 8) * 0.012, label: `Person #${idx + 1}`, trackAge: 10, distanceTier: node.distance, viewOrientation: "frontal", rowCategory: node.y < height * 0.4 ? "background" : node.y < height * 0.7 ? "midground" : "foreground", detectionSource: "simulated", landmarks: [{ x: node.x - bW * 0.09, y: node.y - bH * 0.31, name: "right_eye" }, { x: node.x + bW * 0.09, y: node.y - bH * 0.31, name: "left_eye" }, { x: node.x, y: node.y - bH * 0.27, name: "nose" }, { x: node.x, y: node.y - bH * 0.21, name: "mouth" }] });
+      this.trackedEntities.push({
+        id: idx + 1,
+        x: node.x,
+        y: node.y,
+        width: bW,
+        height: bH,
+        headX: node.x,
+        headY: node.y - bH * 0.28,
+        headRadius: bW * 0.28,
+        confidence: 0.88 + (idx % 8) * 0.012,
+        label: `Person #${idx + 1}`,
+        trackAge: 10,
+        distanceTier: node.distance,
+        viewOrientation: "frontal",
+        rowCategory: node.y < height * 0.4 ? "background" : node.y < height * 0.7 ? "midground" : "foreground",
+        detectionSource: "simulated",
+        landmarks: [
+          { x: node.x - bW * 0.09, y: node.y - bH * 0.31, name: "right_eye" },
+          { x: node.x + bW * 0.09, y: node.y - bH * 0.31, name: "left_eye" },
+          { x: node.x, y: node.y - bH * 0.27, name: "nose" },
+          { x: node.x, y: node.y - bH * 0.21, name: "mouth" },
+        ],
+      });
     });
     this.renderOverlays(ctx, width, height);
     const finalCount = this.computeFinalCount();
@@ -908,10 +1163,28 @@ export class VisionDetector {
     this.countHistory.push(rawCount);
     if (this.countHistory.length > 15) this.countHistory.shift();
     const smoothedCount = Math.round(this.countHistory.reduce((a, b) => a + b, 0) / this.countHistory.length);
-    const finalDisplayedCount = Math.round(rawCount * 0.55 + smoothedCount * 0.45);
+    const finalDisplayedCount = Math.round(rawCount * 0.60 + smoothedCount * 0.40);
 
-    const dist = { close: this.trackedEntities.filter((e) => e.distanceTier === "close").length, mid: this.trackedEntities.filter((e) => e.distanceTier === "mid").length, far: this.trackedEntities.filter((e) => e.distanceTier === "far").length };
-    this.onCountUpdate?.(finalDisplayedCount, { fps: this.fps, detectedCount: finalDisplayedCount, rawDetections: rawCount, inferenceTimeMs: this.lastInferenceDurationMs, isProcessing: this.isRunning, modelStatus: this.modelStatus, activeEngines: this.activeEngines, sensitivity: this.sensitivity, detectionMode: this.detectionMode, viewMode: this.viewMode, distanceBreakdown: dist, densityEstimate: this.densityEstimate, estimatedDemographics: { elderlyRatio: 0.35, childrenRatio: 0.14, pwdRatio: 0.08 } });
+    const dist = {
+      close: this.trackedEntities.filter((e) => e.distanceTier === "close").length,
+      mid: this.trackedEntities.filter((e) => e.distanceTier === "mid").length,
+      far: this.trackedEntities.filter((e) => e.distanceTier === "far").length,
+    };
+    this.onCountUpdate?.(finalDisplayedCount, {
+      fps: this.fps,
+      detectedCount: finalDisplayedCount,
+      rawDetections: rawCount,
+      inferenceTimeMs: this.lastInferenceDurationMs,
+      isProcessing: this.isRunning,
+      modelStatus: this.modelStatus,
+      activeEngines: this.activeEngines,
+      sensitivity: this.sensitivity,
+      detectionMode: this.detectionMode,
+      viewMode: this.viewMode,
+      distanceBreakdown: dist,
+      densityEstimate: this.densityEstimate,
+      estimatedDemographics: { elderlyRatio: 0.35, childrenRatio: 0.14, pwdRatio: 0.08 },
+    });
   }
 }
 

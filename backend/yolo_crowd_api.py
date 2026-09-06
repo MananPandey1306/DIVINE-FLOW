@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from PIL import Image
 from pydantic import BaseModel
 
 app = FastAPI(title='YOLO-CROWD Detection API')
@@ -15,7 +16,6 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
-
 
 MODEL_PATH = os.getenv('YOLO_MODEL_PATH', 'yolov8n.pt')
 
@@ -46,6 +46,15 @@ def status() -> Dict[str, Any]:
     }
 
 
+@app.get('/api/detect')
+def detect_get() -> Dict[str, Any]:
+    return {
+        'status': 'active',
+        'message': 'YOLO-CROWD Detection API endpoint. Send a POST request with JSON payload { image: base64, width, height } to run inference.',
+        'model_loaded': model is not None,
+    }
+
+
 @app.post('/api/detect')
 def detect(payload: DetectRequest) -> Dict[str, Any]:
     if model is None:
@@ -66,8 +75,11 @@ def detect(payload: DetectRequest) -> Dict[str, Any]:
         }
 
     try:
-        image_bytes = base64.b64decode(payload.image)
-        image = io.BytesIO(image_bytes)
+        raw_b64 = payload.image
+        if ',' in raw_b64:
+            raw_b64 = raw_b64.split(',', 1)[1]
+        image_bytes = base64.b64decode(raw_b64)
+        image = Image.open(io.BytesIO(image_bytes)).convert('RGB')
 
         # Lower confidence for dense/occluded crowd scenarios.
         # iou=0.45 reduces duplicate suppression in tightly packed crowds.
@@ -98,19 +110,16 @@ def detect(payload: DetectRequest) -> Dict[str, Any]:
                 conf = float(box.conf.item())
                 w = max(0.0, x2 - x1)
                 h = max(0.0, y2 - y1)
-                # Send CENTER coordinates so the frontend can render boxes correctly.
-                # Previously x1/y1 (top-left) were sent as 'x'/'y', which caused
-                # all detections to be shifted and incorrectly suppressed by NMS.
                 cx = x1 + w / 2
                 cy = y1 + h / 2
                 det = {
                     'class': cls_name,
-                    'confidence': conf,
-                    'x': cx,       # center x
-                    'y': cy,       # center y
-                    'width': w,
-                    'height': h,
-                    'bbox': [x1, y1, x2, y2],  # kept for reference
+                    'confidence': round(conf, 3),
+                    'x': round(cx, 1),
+                    'y': round(cy, 1),
+                    'width': round(w, 1),
+                    'height': round(h, 1),
+                    'bbox': [round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1)],
                 }
                 detections.append(det)
                 person_count += 1
