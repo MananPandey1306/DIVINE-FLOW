@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import { Alert } from '../../types';
-import {
-  Bell,
-  CheckCircle,
-  UserCheck,
-  Flame,
-  Shield,
-  Clock,
-  AlertCircle,
-} from 'lucide-react';
+import { Bell, CheckCircle, UserCheck, Flame, Shield, Clock, AlertCircle } from 'lucide-react';
 import { dataIngestionService } from '../../services/dataIngestion';
 
 interface AlertCenterProps {
@@ -20,275 +12,170 @@ export const AlertCenter: React.FC<AlertCenterProps> = ({ alerts, onOpenSOSForGa
   const [filter, setFilter] = useState<'all' | 'active' | 'escalated' | 'resolved'>('active');
 
   const filteredAlerts = alerts.filter((a) => {
-    if (filter === 'active') return a.status === 'active' || a.status === 'escalated' || a.status === 'investigating';
+    if (filter === 'active')   return a.status === 'active' || a.status === 'escalated' || a.status === 'investigating';
     if (filter === 'escalated') return a.status === 'escalated' || a.escalationTier > 1;
-    if (filter === 'resolved') return a.status === 'resolved';
+    if (filter === 'resolved')  return a.status === 'resolved';
     return true;
   });
 
   const activeCount = alerts.filter((a) => a.status === 'active' || a.status === 'escalated').length;
 
-  const handleAcknowledge = (alertId: string) => {
-    dataIngestionService.acknowledgeAlert(alertId, 'Duty Officer');
-  };
-
-  const handleResolve = (alertId: string) => {
-    dataIngestionService.resolveAlert(alertId, 'Incident Commander');
-  };
+  const handleAcknowledge = (alertId: string) => dataIngestionService.acknowledgeAlert(alertId, 'Duty Officer');
+  const handleResolve     = (alertId: string) => dataIngestionService.resolveAlert(alertId, 'Incident Commander');
 
   const tierLabels = [
-    { tier: 1, role: 'Gate Supervisor', color: '#00d2ff' },
-    { tier: 2, role: 'Central Control Room', color: '#ff6b2c' },
-    { tier: 3, role: 'Emergency Services / Incident Commander', color: '#ff2a5f' },
+    { tier: 1, role: 'Gate Supervisor',                       color: 'var(--cyan)' },
+    { tier: 2, role: 'Central Control Room',                   color: 'var(--orange)' },
+    { tier: 3, role: 'Emergency Services / Incident Commander', color: 'var(--red)' },
   ];
 
+  const severityColor = (sev: string) => {
+    if (sev === 'EMERGENCY' || sev === 'CRITICAL') return 'var(--red)';
+    if (sev === 'HIGH') return 'var(--orange)';
+    return 'var(--yellow)';
+  };
+
   return (
-    <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="glass-panel">
       {/* Header */}
-      <div style={{
-        padding: '14px 18px',
-        borderBottom: '1px solid var(--border-glass)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '10px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{
-            background: 'rgba(255, 107, 44, 0.15)',
-            padding: '6px',
-            borderRadius: '8px',
-            color: '#ff6b2c',
-          }}>
-            <Bell size={18} />
+      <div className="panel-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div className="panel-icon" style={{ background: 'var(--orange-light)', color: 'var(--orange)' }}>
+            <Bell size={15} />
           </div>
           <div>
-            <h2 style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f8fafc' }}>
-              Threshold Alerts & Escalations
-            </h2>
-            <p style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              SLA timed routing matrix
-            </p>
+            <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Alerts & Escalations
+              {activeCount > 0 && (
+                <span style={{
+                  background: 'var(--red)', color: '#fff',
+                  fontSize: '10px', fontWeight: 800, padding: '1px 6px',
+                  borderRadius: '99px', boxShadow: '0 0 8px rgba(239,68,68,0.4)',
+                }}>
+                  {activeCount}
+                </span>
+              )}
+            </div>
+            <div className="panel-sub">SLA-timed routing matrix</div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {activeCount > 0 && (
-            <span style={{
-              background: 'linear-gradient(135deg, #ff2a5f, #dc2626)',
-              color: '#fff',
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              padding: '3px 9px',
-              borderRadius: '9999px',
-              boxShadow: '0 0 12px rgba(255, 42, 95, 0.5)',
-            }}>
-              {activeCount} ACTIVE
-            </span>
-          )}
-
-          {/* Filter tabs */}
-          <div style={{
-            display: 'flex',
-            gap: '2px',
-            background: 'rgba(7, 13, 29, 0.8)',
-            padding: '2px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.06)',
-          }}>
-            {(['active', 'escalated', 'resolved', 'all'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setFilter(tab)}
-                style={{
-                  background: filter === tab ? 'rgba(0, 210, 255, 0.2)' : 'transparent',
-                  color: filter === tab ? '#00d2ff' : '#94a3b8',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '3px 8px',
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textTransform: 'capitalize',
-                }}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
+        <div className="pill-group">
+          {(['active', 'escalated', 'resolved', 'all'] as const).map((tab) => (
+            <button key={tab} onClick={() => setFilter(tab)} className={`pill${filter === tab ? ' active' : ''}`}>
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Alert List */}
-      <div style={{
-        padding: '14px',
-        overflowY: 'auto',
-        maxHeight: '480px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '12px',
-      }}>
+      <div style={{ padding: '10px', maxHeight: '460px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {filteredAlerts.length === 0 ? (
-          <div style={{
-            padding: '36px 20px',
-            textAlign: 'center',
-            color: '#64748b',
-            fontSize: '0.85rem',
-          }}>
-            <CheckCircle size={32} color="#10b981" style={{ margin: '0 auto 10px', display: 'block', opacity: 0.8 }} />
-            No active threshold breaches. All gates operating within safe limits.
+          <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+            <CheckCircle size={28} color="var(--green)" style={{ margin: '0 auto 10px', display: 'block', opacity: 0.7 }} />
+            All gates within safe limits.
           </div>
         ) : (
           filteredAlerts.map((alert) => {
             const currentTier = tierLabels[alert.escalationTier - 1] || tierLabels[0];
+            const sColor = severityColor(alert.severity);
 
             return (
               <div
                 key={alert.id}
                 style={{
-                  background: alert.severity === 'EMERGENCY'
-                    ? 'rgba(236, 72, 153, 0.12)'
-                    : alert.severity === 'CRITICAL'
-                    ? 'rgba(255, 42, 95, 0.1)'
-                    : 'rgba(22, 36, 68, 0.6)',
-                  border: `1px solid ${
-                    alert.severity === 'EMERGENCY'
-                      ? 'rgba(236, 72, 153, 0.6)'
-                      : alert.severity === 'CRITICAL'
-                      ? 'rgba(255, 42, 95, 0.5)'
-                      : 'rgba(255, 107, 44, 0.35)'
-                  }`,
-                  borderRadius: '12px',
-                  padding: '14px',
-                  boxShadow: alert.severity === 'EMERGENCY' ? '0 0 20px rgba(236, 72, 153, 0.25)' : 'none',
+                  background: 'var(--bg-overlay)',
+                  border: `1px solid ${alert.severity === 'EMERGENCY' || alert.severity === 'CRITICAL' ? 'rgba(239,68,68,0.3)' : 'var(--border)'}`,
+                  borderLeft: `2px solid ${sColor}`,
+                  borderRadius: '8px',
+                  padding: '12px',
+                  boxShadow: alert.severity === 'EMERGENCY' ? '0 0 16px rgba(236,72,153,0.1)' : undefined,
                 }}
               >
-                {/* Alert Header */}
+                {/* Alert header */}
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span className={`badge badge-${alert.severity.toLowerCase()}`}>
-                        {alert.severity}
-                      </span>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f8fafc' }}>
-                        {alert.gateName}
-                      </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span className={`badge badge-${alert.severity.toLowerCase()}`}>{alert.severity}</span>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)' }}>{alert.gateName}</span>
                     </div>
-                    <h4 style={{ fontSize: '0.9rem', fontWeight: 800, color: '#f1f5f9', marginTop: '4px' }}>
+                    <h4 style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginTop: '4px', letterSpacing: '-0.01em' }}>
                       {alert.title}
                     </h4>
                   </div>
-
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'var(--font-mono)' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
                     {new Date(alert.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                   </span>
                 </div>
 
-                {/* Density & Metrics */}
+                {/* Metrics */}
                 <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  fontSize: '0.78rem',
-                  color: '#cbd5e1',
-                  marginTop: '8px',
-                  padding: '6px 10px',
-                  background: 'rgba(7, 13, 29, 0.6)',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(255, 255, 255, 0.04)',
+                  display: 'flex', gap: '12px', fontSize: '11px',
+                  color: 'var(--text-muted)', marginTop: '8px',
+                  padding: '6px 8px', background: 'var(--bg-muted)',
+                  borderRadius: '6px',
                 }}>
-                  <span>Headcount: <strong style={{ color: '#00d2ff' }}>{alert.currentCount}</strong> / {alert.maxCapacity}</span>
-                  <span>Density: <strong style={{ color: alert.densityPercentage >= 90 ? '#ff2a5f' : '#ff6b2c' }}>{alert.densityPercentage}%</strong></span>
-                  <span>Risk: <strong style={{ color: '#f8fafc' }}>{alert.riskScore}/100</strong></span>
+                  <span>Count: <strong style={{ color: 'var(--cyan)' }}>{alert.currentCount}</strong>/{alert.maxCapacity}</span>
+                  <span>Density: <strong style={{ color: alert.densityPercentage >= 90 ? 'var(--red)' : 'var(--orange)' }}>{alert.densityPercentage}%</strong></span>
+                  <span>Risk: <strong style={{ color: 'var(--text-primary)' }}>{alert.riskScore}/100</strong></span>
                 </div>
 
-                {/* Reason Contributing Factors */}
-                <div style={{ marginTop: '8px', fontSize: '0.74rem', color: '#94a3b8' }}>
+                {/* Reasons */}
+                <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
                   {alert.reasons.slice(0, 2).map((r, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '2px' }}>
-                      <span style={{ color: '#00d2ff' }}>•</span>
+                    <div key={idx} style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                      <span style={{ color: 'var(--accent)' }}>·</span>
                       <span>{r}</span>
                     </div>
                   ))}
                 </div>
 
-                {/* Escalation Tier & SLA Countdown */}
+                {/* Escalation tier + timer */}
                 {alert.status !== 'resolved' && (
                   <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginTop: '10px',
-                    paddingTop: '8px',
-                    borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-                    fontSize: '0.74rem',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)',
+                    fontSize: '11px',
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <Shield size={13} color={currentTier.color} />
-                      <span style={{ color: '#cbd5e1' }}>Escalation Tier {alert.escalationTier}:</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Shield size={11} color={currentTier.color} />
+                      <span style={{ color: 'var(--text-muted)' }}>Tier {alert.escalationTier}:</span>
                       <strong style={{ color: currentTier.color }}>{currentTier.role}</strong>
                     </div>
-
                     {!alert.acknowledged && (
                       <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        color: alert.escalationTimerRemaining < 10 ? '#ff2a5f' : '#f59e0b',
-                        fontWeight: 800,
-                        fontFamily: 'var(--font-mono)',
+                        display: 'flex', alignItems: 'center', gap: '3px',
+                        color: alert.escalationTimerRemaining < 10 ? 'var(--red)' : 'var(--yellow)',
+                        fontWeight: 700, fontFamily: 'var(--font-mono)',
                       }}>
-                        <Clock size={12} />
-                        Escalates in {alert.escalationTimerRemaining}s
+                        <Clock size={10} />
+                        Escalates {alert.escalationTimerRemaining}s
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-end',
-                  gap: '8px',
-                  marginTop: '12px',
-                }}>
+                {/* Actions */}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '6px', marginTop: '10px' }}>
                   {alert.status === 'resolved' ? (
-                    <span style={{ fontSize: '0.74rem', color: '#34d399', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
-                      <CheckCircle size={14} /> Resolved
+                    <span style={{ fontSize: '11px', color: 'var(--green)', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700 }}>
+                      <CheckCircle size={12} /> Resolved
                     </span>
                   ) : (
                     <>
                       {!alert.acknowledged ? (
-                        <button
-                          onClick={() => handleAcknowledge(alert.id)}
-                          className="btn btn-primary btn-sm"
-                          style={{ padding: '4px 12px' }}
-                        >
-                          <UserCheck size={13} />
-                          Acknowledge
+                        <button onClick={() => handleAcknowledge(alert.id)} className="btn btn-primary btn-sm" style={{ padding: '4px 10px' }}>
+                          <UserCheck size={11} /> Acknowledge
                         </button>
                       ) : (
-                        <button
-                          onClick={() => handleResolve(alert.id)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ padding: '4px 12px', color: '#34d399' }}
-                        >
-                          <CheckCircle size={13} />
-                          Mark Resolved
+                        <button onClick={() => handleResolve(alert.id)} className="btn btn-secondary btn-sm" style={{ padding: '4px 10px', color: 'var(--green)' }}>
+                          <CheckCircle size={11} /> Resolve
                         </button>
                       )}
-
                       {onOpenSOSForGate && (
-                        <button
-                          onClick={() => onOpenSOSForGate(alert.gateId)}
-                          className="btn btn-sos btn-sm"
-                          style={{ padding: '4px 10px' }}
-                          title="Trigger Emergency SOS for this gate"
-                        >
-                          <Flame size={13} />
-                          SOS
+                        <button onClick={() => onOpenSOSForGate(alert.gateId)} className="btn btn-sos btn-sm" style={{ padding: '4px 9px' }}>
+                          <Flame size={11} /> SOS
                         </button>
                       )}
                     </>

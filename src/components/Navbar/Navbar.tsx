@@ -10,6 +10,7 @@ import {
   FileText,
   Flame,
   Bot,
+  Activity,
 } from 'lucide-react';
 import { VenueConfig, RiskLevel } from '../../types';
 import { audioService } from '../../services/audioSynthesizer';
@@ -59,230 +60,159 @@ export const Navbar: React.FC<NavbarProps> = ({
     audioService.setSoundEnabled(next);
   };
 
+  const tabs = [
+    { id: 'command_center' as const, icon: ShieldAlert, label: 'Command Center', labelHi: 'कमांड कक्ष' },
+    { id: 'public_signage' as const, icon: Tv,           label: 'Pilgrim Signage', labelHi: 'सूचना बोर्ड' },
+    { id: 'vision_feed'   as const, icon: Camera,        label: 'AI Vision CCTV',  labelHi: 'नेत्र निगरानी' },
+  ];
+
   return (
-    <header className="app-header" style={{
-      background: 'rgba(7, 13, 29, 0.9)',
-      borderBottom: '1px solid rgba(245, 158, 11, 0.25)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-      padding: '12px 24px',
-      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.6), 0 0 20px rgba(245, 158, 11, 0.08)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        
-        {/* Logo & Ayodhya Dham Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+    <header className="app-header">
+      <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '16px' }}>
+
+        {/* ── Logo + Title ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <div style={{
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            padding: '9px 12px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 0 24px rgba(245, 158, 11, 0.5)',
-            color: '#070d1d',
-            fontWeight: 900,
-            fontSize: '1.2rem',
+            width: 34, height: 34,
+            background: 'linear-gradient(135deg, #5b6af5, #3b4dd4)',
+            borderRadius: '9px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '18px', flexShrink: 0,
+            boxShadow: '0 0 16px rgba(91,106,245,0.4)',
           }}>
             🏹
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.25rem', fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.02em' }}>
-                श्री राम जन्मभूमि <span style={{ color: '#fbbf24', fontWeight: 900 }}>कमांड सेंटर</span>
-              </h1>
               <span style={{
-                fontSize: '0.68rem',
-                background: 'rgba(245, 158, 11, 0.18)',
-                color: '#fbbf24',
-                padding: '2px 8px',
-                borderRadius: '999px',
-                border: '1px solid rgba(245, 158, 11, 0.4)',
-                fontWeight: 800,
+                fontFamily: 'var(--font-display)',
+                fontSize: '15px', fontWeight: 800,
+                color: 'var(--text-primary)', letterSpacing: '-0.02em',
+              }}>
+                श्री राम <span style={{ color: '#5b6af5' }}>Command</span>
+              </span>
+              <span style={{
+                fontSize: '10px', background: 'rgba(91,106,245,0.15)',
+                color: '#7c87f7', padding: '1px 7px', borderRadius: '99px',
+                border: '1px solid rgba(91,106,245,0.3)', fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
               }}>
                 AYODHYA DHAM
               </span>
-              <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.2)' }}>|</span>
-              <span style={{ fontSize: '0.88rem', color: '#cbd5e1', fontWeight: 700 }}>{venue.name}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.74rem', color: '#94a3b8', marginTop: '2px' }}>
-              <span className="radar-dot" style={{ width: '6px', height: '6px', backgroundColor: '#fbbf24', boxShadow: '0 0 8px #fbbf24' }} />
-              <span style={{ color: '#f8fafc', fontWeight: 600 }}>🚩 Teerth Kshetra Trust</span>
-              <span>•</span>
-              <span style={{ fontFamily: 'var(--font-mono)', color: '#00d2ff', fontWeight: 600 }}>{timeStr} IST</span>
-              <span>•</span>
-              <span style={{ color: venue.environment.weather === 'rain' ? '#60a5fa' : '#34d399', fontWeight: 600 }}>
-                {venue.environment.weather === 'rain' ? '🌧️ Monsoon Rain Rush' : '☀️ Clear (27°C)'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
+              <span className="radar-dot" style={{ width: 5, height: 5 }} />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                {venue.name}
+              </span>
+              <span style={{ color: 'var(--text-faint)' }}>·</span>
+              <span style={{ fontSize: '11px', color: '#5b6af5', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+                {timeStr} IST
+              </span>
+              <span style={{ color: 'var(--text-faint)' }}>·</span>
+              <span style={{ fontSize: '11px', color: venue.environment.weather === 'rain' ? '#60a5fa' : 'var(--green)', fontWeight: 600 }}>
+                {venue.environment.weather === 'rain' ? '🌧️ Rain' : '☀️ 27°C'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div style={{
-          display: 'flex',
-          background: 'rgba(13, 22, 42, 0.85)',
-          padding: '4px',
-          borderRadius: '12px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.4)',
+        {/* ── Spacer ── */}
+        <div style={{ flex: 1 }} />
+
+        {/* ── Nav Tabs ── */}
+        <nav style={{
+          display: 'flex', gap: '2px',
+          background: 'var(--bg-overlay)',
+          padding: '3px', borderRadius: '10px',
+          border: '1px solid var(--border)',
         }}>
-          <button
-            onClick={() => setCurrentTab('command_center')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 16px',
-              borderRadius: '9px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: currentTab === 'command_center' ? 'linear-gradient(135deg, #d97706, #b45309)' : 'transparent',
-              color: currentTab === 'command_center' ? '#ffffff' : '#94a3b8',
-              boxShadow: currentTab === 'command_center' ? '0 4px 15px rgba(217, 119, 6, 0.4)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <ShieldAlert size={15} />
-            Command Center (कमांड कक्ष)
-            {activeAlertCount > 0 && (
-              <span style={{
-                background: '#ff2a5f',
-                color: '#fff',
-                fontSize: '0.68rem',
-                padding: '1px 7px',
-                borderRadius: '9999px',
-                fontWeight: 800,
-                boxShadow: '0 0 10px rgba(255, 42, 95, 0.6)',
-              }}>
-                {activeAlertCount}
-              </span>
-            )}
+          {tabs.map(({ id, icon: Icon, label }) => {
+            const active = currentTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setCurrentTab(id)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 14px', borderRadius: '8px',
+                  border: active ? '1px solid var(--border-md)' : '1px solid transparent',
+                  cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+                  background: active ? 'var(--bg-subtle)' : 'transparent',
+                  color: active ? 'var(--text-primary)' : 'var(--text-muted)',
+                  transition: 'all 0.15s ease',
+                  position: 'relative',
+                }}
+              >
+                <Icon size={14} />
+                {label}
+                {id === 'command_center' && activeAlertCount > 0 && (
+                  <span style={{
+                    background: 'var(--red)', color: '#fff',
+                    fontSize: '10px', padding: '0 5px', height: '16px',
+                    borderRadius: '99px', fontWeight: 800,
+                    display: 'flex', alignItems: 'center',
+                    boxShadow: '0 0 8px rgba(239,68,68,0.5)',
+                    minWidth: '16px', justifyContent: 'center',
+                  }}>
+                    {activeAlertCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* ── Right Actions ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+
+          {/* Live pulse indicator */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            padding: '5px 10px', borderRadius: '8px',
+            background: 'var(--bg-overlay)', border: '1px solid var(--border)',
+          }}>
+            <span className="radar-dot" style={{ width: 5, height: 5 }} />
+            <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              LIVE
+            </span>
+          </div>
+
+          <button onClick={toggleSound} className="btn btn-secondary" title={soundEnabled ? 'Mute alerts' : 'Enable alerts'} style={{ padding: '6px 10px', minHeight: 32 }}>
+            {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} style={{ color: 'var(--text-muted)' }} />}
           </button>
 
-          <button
-            onClick={() => setCurrentTab('public_signage')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 16px',
-              borderRadius: '9px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: currentTab === 'public_signage' ? 'linear-gradient(135deg, #059669, #047857)' : 'transparent',
-              color: currentTab === 'public_signage' ? '#ffffff' : '#94a3b8',
-              boxShadow: currentTab === 'public_signage' ? '0 4px 15px rgba(5, 150, 105, 0.4)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <Tv size={15} />
-            Pilgrim Signage (श्रद्धालु सूचना बोर्ड)
+          <button onClick={onOpenBroadcast} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', minHeight: 32 }}>
+            <Radio size={13} />
+            PA Broadcast
           </button>
 
-          <button
-            onClick={() => setCurrentTab('vision_feed')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '7px 16px',
-              borderRadius: '9px',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              background: currentTab === 'vision_feed' ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : 'transparent',
-              color: currentTab === 'vision_feed' ? '#ffffff' : '#94a3b8',
-              boxShadow: currentTab === 'vision_feed' ? '0 4px 15px rgba(124, 58, 237, 0.4)' : 'none',
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <Camera size={15} />
-            AI Vision CCTV (नेत्र निगरानी)
-          </button>
-        </div>
-
-        {/* Action Buttons & Simulation Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          
-          {/* Audio Mute Toggle */}
-          <button
-            onClick={toggleSound}
-            title={soundEnabled ? 'Mute PA Chime & Announcements' : 'Enable PA Chime & Announcements'}
-            className="btn btn-secondary"
-            style={{ padding: '8px' }}
-          >
-            {soundEnabled ? <Volume2 size={16} color="#10b981" /> : <VolumeX size={16} color="#94a3b8" />}
-          </button>
-
-          {/* Quick Broadcast Button */}
-          <button
-            onClick={onOpenBroadcast}
-            className="btn btn-primary"
-            style={{ fontSize: '0.8rem', padding: '8px 14px', background: 'linear-gradient(135deg, #d97706, #b45309)', borderColor: 'rgba(245, 158, 11, 0.4)' }}
-          >
-            <Radio size={14} />
-            PA Broadcast (उद्घोषणा)
-          </button>
-
-          {/* Incident Log Button */}
-          <button
-            onClick={onOpenIncidentLog}
-            className="btn btn-secondary"
-            style={{ fontSize: '0.8rem', padding: '8px 14px' }}
-            title="View Incident Audit Trail"
-          >
-            <FileText size={14} />
+          <button onClick={onOpenIncidentLog} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', minHeight: 32 }}>
+            <FileText size={13} />
             Audit Log
           </button>
 
-          {/* Setup / Config Wizard */}
-          <button
-            onClick={onOpenSetup}
-            className="btn btn-secondary"
-            style={{ padding: '8px' }}
-            title="Configure Venue & Gates"
-          >
-            <Settings size={16} />
+          <button onClick={onOpenSetup} className="btn btn-secondary" title="Configure Venue" style={{ padding: '6px 10px', minHeight: 32 }}>
+            <Settings size={14} />
           </button>
 
-          <button
-            onClick={onOpenDetectionApi}
-            className="btn btn-secondary"
-            style={{ padding: '8px' }}
-            title="Configure YOLO-CROWD detection API"
-          >
-            <Bot size={16} />
+          <button onClick={onOpenDetectionApi} className="btn btn-secondary" title="YOLO Detection API" style={{ padding: '6px 10px', minHeight: 32 }}>
+            <Bot size={14} />
           </button>
 
-          {/* One-Tap Emergency SOS Button */}
+          {/* Divider */}
+          <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 4px' }} />
+
           <button
             onClick={onOpenSOS}
             className="btn btn-sos"
-            style={{
-              padding: '8px 18px',
-              fontSize: '0.82rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
+            style={{ fontSize: '12px', padding: '6px 14px', minHeight: 32, letterSpacing: '0.04em' }}
           >
-            <Flame size={16} />
-            SOS DISPATCH (आपातकालीन)
+            <Flame size={13} />
+            SOS
           </button>
-
         </div>
       </div>
-
     </header>
   );
 };
