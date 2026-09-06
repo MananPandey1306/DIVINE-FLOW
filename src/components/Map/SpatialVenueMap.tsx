@@ -164,40 +164,60 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
         ctx.stroke();
       }
 
-      // Arabian Sea Coastal Flow Graphic on top-right
-      ctx.fillStyle = 'rgba(14, 165, 233, 0.14)';
+      // Check if current venue is Ayodhya Ram Mandir
+      const isAyodhya = gates.some(
+        (g) =>
+          g.name.toLowerCase().includes('ram') ||
+          g.name.toLowerCase().includes('ayodhya') ||
+          g.name.toLowerCase().includes('janmabhoomi') ||
+          g.zone?.toLowerCase().includes('ayodhya') ||
+          g.zone?.toLowerCase().includes('rampath') ||
+          g.code?.startsWith('AP-') ||
+          g.code?.startsWith('RM-')
+      );
+
+      // Water body graphic on top-right: Sarayu River (Ayodhya) or Arabian Sea (Somnath)
+      ctx.fillStyle = isAyodhya ? 'rgba(59, 130, 246, 0.16)' : 'rgba(14, 165, 233, 0.14)';
       ctx.beginPath();
       ctx.moveTo(width * 0.65, 0);
       ctx.bezierCurveTo(width * 0.72, height * 0.22, width * 0.88, height * 0.42, width, height * 0.48);
       ctx.lineTo(width, 0);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.7)';
+      ctx.fillStyle = isAyodhya ? 'rgba(96, 165, 250, 0.85)' : 'rgba(56, 189, 248, 0.7)';
       ctx.font = 'bold 9px var(--font-mono)';
-      ctx.fillText('🌊 ARABIAN SEA (अरब सागर - प्रभास पाटन)', width * 0.82, 20);
+      ctx.fillText(
+        isAyodhya ? '🌊 SARAYU RIVER (सरयू नदी - अयोध्या धाम)' : '🌊 ARABIAN SEA (अरब सागर - प्रभास पाटन)',
+        width * 0.82,
+        20
+      );
 
-      // Baan Stambh (Arrow Pillar) Marker
-      ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
+      // Landmark Marker (Ram ki Paidi or Baan Stambh)
+      ctx.fillStyle = isAyodhya ? 'rgba(249, 115, 22, 0.85)' : 'rgba(251, 191, 36, 0.55)';
       ctx.font = 'bold 8px var(--font-mono)';
-      ctx.fillText('📍 बाण स्तंभ (BAAN STAMBH)', width * 0.85, 36);
+      ctx.fillText(
+        isAyodhya ? '🚩 राम की पैड़ी (RAM KI PAIDI)' : '📍 बाण स्तंभ (BAAN STAMBH)',
+        width * 0.85,
+        36
+      );
 
-      // 3. Shree Somnath 30-Acre Perimeter Boundary
-      ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
+      // 3. Temple Perimeter Boundary
+      ctx.strokeStyle = isAyodhya ? 'rgba(249, 115, 22, 0.5)' : 'rgba(245, 158, 11, 0.45)';
       ctx.lineWidth = 2;
-      ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
+      ctx.shadowColor = isAyodhya ? 'rgba(249, 115, 22, 0.4)' : 'rgba(245, 158, 11, 0.4)';
       ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.roundRect(width * 0.12, height * 0.12, width * 0.76, height * 0.76, 28);
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Central Garbhagriha & Someshwar Sanctum
+      // Central Garbhagriha & Sanctum
       const hubRadius = Math.min(width, height) * 0.16;
       const hubGrad = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, hubRadius);
-      hubGrad.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+      hubGrad.addColorStop(0, isAyodhya ? 'rgba(249, 115, 22, 0.28)' : 'rgba(245, 158, 11, 0.25)');
       hubGrad.addColorStop(1, 'rgba(15, 23, 42, 0.85)');
       ctx.fillStyle = hubGrad;
-      ctx.strokeStyle = 'rgba(251, 191, 36, 0.75)';
+      ctx.strokeStyle = isAyodhya ? 'rgba(251, 146, 60, 0.85)' : 'rgba(251, 191, 36, 0.75)';
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(centerX, centerY, hubRadius, 0, Math.PI * 2);
@@ -205,14 +225,18 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
       ctx.stroke();
 
       // Temple Dhwaja / Icon
-      ctx.fillStyle = '#fbbf24';
+      ctx.fillStyle = isAyodhya ? '#fb923c' : '#fbbf24';
       ctx.font = 'bold 12px var(--font-sans)';
       ctx.textAlign = 'center';
       ctx.fillText('🚩 गर्भगृह (MAIN SANCTUM)', centerX, centerY - 4);
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 10px var(--font-display)';
-      ctx.fillText('SHREE SOMNATH JYOTIRLINGA', centerX, centerY + 10);
+      ctx.fillText(
+        isAyodhya ? 'SHRI RAM LALLA DARSHAN' : 'SHREE SOMNATH JYOTIRLINGA',
+        centerX,
+        centerY + 10
+      );
 
       // Walkway Corridors connecting Gates to Garbhagriha
       gates.forEach((gate) => {
@@ -491,6 +515,16 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
 
   const selectedGate = gates.find((g) => g.id === selectedGateId);
   const selectedRisk = selectedGate ? riskAssessments.get(selectedGate.id) : null;
+  const isAyodhya = gates.some(
+    (g) =>
+      g.name.toLowerCase().includes('ram') ||
+      g.name.toLowerCase().includes('ayodhya') ||
+      g.name.toLowerCase().includes('janmabhoomi') ||
+      g.zone?.toLowerCase().includes('ayodhya') ||
+      g.zone?.toLowerCase().includes('rampath') ||
+      g.code?.startsWith('AP-') ||
+      g.code?.startsWith('RM-')
+  );
 
   return (
     <div className="glass-panel" style={{ position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -506,19 +540,23 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{
-            background: 'rgba(245, 158, 11, 0.15)',
+            background: isAyodhya ? 'rgba(249, 115, 22, 0.15)' : 'rgba(245, 158, 11, 0.15)',
             padding: '6px',
             borderRadius: '8px',
-            color: '#fbbf24',
+            color: isAyodhya ? '#fb923c' : '#fbbf24',
           }}>
             <Layers size={18} />
           </div>
           <div>
             <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-              Shri Somnath Jyotirlinga Spatial Radar (તીર્થ ક્ષેત્ર સ્થાનિક રડાર)
+              {isAyodhya
+                ? 'Shri Ram Janmabhoomi Spatial Radar (तीर्थ क्षेत्र स्थानिक रडार)'
+                : 'Shri Somnath Jyotirlinga Spatial Radar (તીર્થ ક્ષેત્ર સ્થાનિક રડાર)'}
             </h2>
             <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Garbhagriha Sanctum, Digvijay Dwar, Samudra Darshan & Arabian Sea Corridors
+              {isAyodhya
+                ? 'Garbhagriha Sanctum, Janmabhoomi Path, Ram Path, Bhakti Path & Sugriva Q-Complex'
+                : 'Garbhagriha Sanctum, Digvijay Dwar, Samudra Darshan & Arabian Sea Corridors'}
             </p>
           </div>
         </div>

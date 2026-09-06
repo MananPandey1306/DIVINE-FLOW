@@ -14,6 +14,8 @@ import {
 import { VenueConfig, RiskLevel } from '../../types';
 import { audioService } from '../../services/audioSynthesizer';
 
+import { dataIngestionService } from '../../services/dataIngestion';
+
 interface NavbarProps {
   currentTab: 'command_center' | 'public_signage' | 'vision_feed';
   setCurrentTab: (tab: 'command_center' | 'public_signage' | 'vision_feed') => void;
@@ -41,6 +43,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [timeStr, setTimeStr] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(audioService.isEnabled());
+
+  const isAyodhya = venue.id.includes('ayodhya') || venue.id.includes('ram');
 
   useEffect(() => {
     const updateTime = () => {
@@ -98,18 +102,56 @@ export const Navbar: React.FC<NavbarProps> = ({
               }}>
                 DIVINE FLOW <span style={{ color: '#6d28d9' }}>AI Command</span>
               </span>
-              <span style={{
-                fontSize: '10px',
+
+              {/* Shrine Switcher Pill */}
+              <div style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
                 background: 'rgba(109, 40, 217, 0.08)',
-                color: '#6d28d9',
-                padding: '2px 8px',
+                padding: '2px 4px',
                 borderRadius: '9999px',
                 border: '1px solid rgba(124, 58, 237, 0.25)',
-                fontWeight: 700,
-                fontFamily: 'var(--font-mono)',
               }}>
-                SOMNATH TEERTH
-              </span>
+                <button
+                  type="button"
+                  onClick={() => dataIngestionService.loadPreset('somnath-jyotirlinga-mandir')}
+                  style={{
+                    padding: '2px 7px',
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    borderRadius: '9999px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: !isAyodhya ? '#7c3aed' : 'transparent',
+                    color: !isAyodhya ? '#ffffff' : '#6d28d9',
+                    fontFamily: 'var(--font-mono)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Switch to Shri Somnath Jyotirlinga Mandir"
+                >
+                  🔱 SOMNATH
+                </button>
+                <button
+                  type="button"
+                  onClick={() => dataIngestionService.loadPreset('ram-janmabhoomi-ayodhya')}
+                  style={{
+                    padding: '2px 7px',
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    borderRadius: '9999px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    background: isAyodhya ? '#7c3aed' : 'transparent',
+                    color: isAyodhya ? '#ffffff' : '#6d28d9',
+                    fontFamily: 'var(--font-mono)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  title="Switch to Shri Ram Janmabhoomi Mandir, Ayodhya"
+                >
+                  🚩 AYODHYA
+                </button>
+              </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
               <span className="radar-dot" style={{ width: 6, height: 6 }} />
