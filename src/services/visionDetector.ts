@@ -256,10 +256,10 @@ export class VisionDetector {
 
   public setSensitivity(s: "low" | "medium" | "high" | "ultra" | "max") {
     this.sensitivity = s;
-    if (s === "low") { this.confidenceThreshold = 0.22; this.cocoConfidenceThreshold = 0.16; }
-    else if (s === "medium") { this.confidenceThreshold = 0.16; this.cocoConfidenceThreshold = 0.12; }
-    else if (s === "high") { this.confidenceThreshold = 0.10; this.cocoConfidenceThreshold = 0.08; }
-    else if (s === "ultra") { this.confidenceThreshold = 0.07; this.cocoConfidenceThreshold = 0.05; }
+    if (s === "low") { this.confidenceThreshold = 0.32; this.cocoConfidenceThreshold = 0.25; }
+    else if (s === "medium") { this.confidenceThreshold = 0.20; this.cocoConfidenceThreshold = 0.15; }
+    else if (s === "high") { this.confidenceThreshold = 0.12; this.cocoConfidenceThreshold = 0.09; }
+    else if (s === "ultra") { this.confidenceThreshold = 0.08; this.cocoConfidenceThreshold = 0.06; }
     else if (s === "max") { this.confidenceThreshold = 0.05; this.cocoConfidenceThreshold = 0.04; }
     try { this.blazefaceVideoDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
     try { this.blazefaceImageDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
@@ -473,7 +473,7 @@ export class VisionDetector {
       if (remote && remote.length) return remote;
     }
 
-    // 2. Ensemble Multi-Model Local Inference (BlazeFace + COCO-SSD in parallel)
+    // 2. Multi-Model Neural Ensemble (BlazeFace + COCO-SSD + EfficientDet Lite)
     const localPromises: Promise<DetectedEntity[]>[] = [];
 
     if (this.isBlazefaceReady && this.blazefaceVideoDetector) {
@@ -500,7 +500,9 @@ export class VisionDetector {
           return [];
         })()
       );
-    } else if (this.isObjectDetectorReady && this.objectDetector) {
+    }
+
+    if (this.isObjectDetectorReady && this.objectDetector) {
       localPromises.push(
         (async () => {
           try {
@@ -520,16 +522,14 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections, width, height);
-    const omegaHeads = this.detectOmegaHeads(video, width, height, refined);
-    const combined = [...refined, ...omegaHeads];
 
-    if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
-      this.modelStatus = `Multi-Tier Crowd AI (${combined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD + Omega-Head AI";
+    if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = `Multi-Tier Neural AI (${refined.length} people)`;
+      this.activeEngines = "BlazeFace + COCO-SSD + EfficientDet Lite";
     }
 
-    this.densityEstimate = this.estimateDensityGrid(combined, width, height);
-    return this.applyNMS(combined);
+    this.densityEstimate = this.estimateDensityGrid(refined, width, height);
+    return this.applyNMS(refined);
   }
 
   private async runImageDetection(source: HTMLImageElement | HTMLCanvasElement, width: number, height: number): Promise<DetectedEntity[]> {
@@ -541,7 +541,7 @@ export class VisionDetector {
       if (remote && remote.length) return remote;
     }
 
-    // 2. Ensemble Multi-Model Local Inference (BlazeFace + COCO-SSD in parallel)
+    // 2. Multi-Model Neural Ensemble (BlazeFace + COCO-SSD + EfficientDet Lite)
     const localPromises: Promise<DetectedEntity[]>[] = [];
 
     if (this.isBlazefaceReady && this.blazefaceImageDetector) {
@@ -570,7 +570,9 @@ export class VisionDetector {
           return [];
         })()
       );
-    } else if (this.isObjectDetectorReady && this.objectDetector) {
+    }
+
+    if (this.isObjectDetectorReady && this.objectDetector) {
       localPromises.push(
         (async () => {
           try {
@@ -590,158 +592,14 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections, width, height);
-    const omegaHeads = this.detectOmegaHeads(source, width, height, refined);
-    const combined = [...refined, ...omegaHeads];
 
-    if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
-      this.modelStatus = `Multi-Tier Crowd AI (${combined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD + Omega-Head AI";
+    if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = `Multi-Tier Neural AI (${refined.length} people)`;
+      this.activeEngines = "BlazeFace + COCO-SSD + EfficientDet Lite";
     }
 
-    this.densityEstimate = this.estimateDensityGrid(combined, width, height);
-    return this.applyNMS(combined);
-  }
-
-  private detectOmegaHeads(
-    source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
-    width: number,
-    height: number,
-    anchorDetections: DetectedEntity[]
-  ): DetectedEntity[] {
-    const sw = 360;
-    const sh = 200;
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = sw;
-    tempCanvas.height = sh;
-    const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return [];
-
-    try {
-      ctx.drawImage(source, 0, 0, sw, sh);
-      const imgData = ctx.getImageData(0, 0, sw, sh);
-      const data = imgData.data;
-
-      const extraHeads: DetectedEntity[] = [];
-      const occupied = new Set<string>();
-
-      // Grid cell size in downscaled space
-      const CELL_SIZE = 6;
-
-      // Mark anchor detections in occupancy grid with precise radius
-      anchorDetections.forEach((a) => {
-        const ax = (a.headX / width) * sw;
-        const ay = (a.headY / height) * sh;
-        const gx = Math.round(ax / CELL_SIZE);
-        const gy = Math.round(ay / CELL_SIZE);
-        const rCells = Math.max(1, Math.round(((a.headRadius || 12) / width) * sw / CELL_SIZE));
-        for (let dx = -rCells; dx <= rCells; dx++) {
-          for (let dy = -rCells; dy <= rCells; dy++) {
-            occupied.add(`${gx + dx},${gy + dy}`);
-          }
-        }
-      });
-
-      // Adaptive sensitivity thresholds
-      const sens = this.sensitivity;
-      const minContrastDiff = sens === 'low' ? 7.5 : sens === 'medium' ? 4.5 : sens === 'high' ? 3.0 : 2.0;
-      const minGradCount = sens === 'low' ? 4 : sens === 'medium' ? 3 : 3;
-
-      const stepY = 5;
-      for (let sy = 16; sy < sh - 14; sy += stepY) {
-        const yRatio = sy / sh;
-        // Perspective scaling: top background has smaller heads (~3-5px), foreground has larger heads (~8-14px)
-        const expectedR = Math.max(2.8, Math.min(14, 2.2 + yRatio * 10.5));
-        const stepX = Math.max(4, Math.round(expectedR * 0.85));
-
-        for (let sx = 10; sx < sw - 10; sx += stepX) {
-          const gx = Math.round(sx / CELL_SIZE);
-          const gy = Math.round(sy / CELL_SIZE);
-          if (occupied.has(`${gx},${gy}`)) continue;
-
-          // Center luminance (3x3 average)
-          let centerLum = 0;
-          let centerCount = 0;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const px = sx + dx;
-              const py = sy + dy;
-              if (px >= 0 && px < sw && py >= 0 && py < sh) {
-                const idx = (py * sw + px) * 4;
-                centerLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-                centerCount++;
-              }
-            }
-          }
-          centerLum /= (centerCount || 1);
-
-          if (centerLum < 10 || centerLum > 245) continue;
-
-          // Radial ring sampling across 8 compass directions
-          const angles = [0, 45, 90, 135, 180, 225, 270, 315];
-          let outwardGradientCount = 0;
-          let ringLumSum = 0;
-          let validSamples = 0;
-
-          for (const deg of angles) {
-            const rad = (deg * Math.PI) / 180;
-            const rx = Math.round(sx + Math.cos(rad) * (expectedR * 0.88));
-            const ry = Math.round(sy + Math.sin(rad) * expectedR);
-            if (rx < 0 || rx >= sw || ry < 0 || ry >= sh) continue;
-
-            const idx = (ry * sw + rx) * 4;
-            const ringLum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-            ringLumSum += ringLum;
-            validSamples++;
-
-            if (Math.abs(ringLum - centerLum) >= minContrastDiff * 1.1) {
-              outwardGradientCount++;
-            }
-          }
-
-          if (validSamples < 6) continue;
-
-          const avgRingLum = ringLumSum / validSamples;
-          const contrastDiff = Math.abs(avgRingLum - centerLum);
-
-          if (outwardGradientCount >= minGradCount && contrastDiff >= minContrastDiff) {
-            const worldX = (sx / sw) * width;
-            const worldY = (sy / sh) * height;
-            const worldR = Math.max(4.5, (expectedR / sw) * width);
-            const bodyW = worldR * 2.2;
-            const bodyH = worldR * 3.4;
-
-            extraHeads.push({
-              id: anchorDetections.length + extraHeads.length + 1,
-              x: worldX,
-              y: worldY + worldR * 1.1,
-              width: bodyW,
-              height: bodyH,
-              headX: worldX,
-              headY: worldY,
-              headRadius: worldR,
-              confidence: Math.min(0.88, Math.max(0.60, 0.55 + (outwardGradientCount / 8) * 0.25)),
-              label: `Person #${anchorDetections.length + extraHeads.length + 1}`,
-              trackAge: 10,
-              distanceTier: yRatio > 0.62 ? 'close' : yRatio > 0.28 ? 'mid' : 'far',
-              viewOrientation: 'rear_or_side',
-              rowCategory: yRatio < 0.35 ? 'background' : yRatio < 0.68 ? 'midground' : 'foreground',
-              detectionSource: 'coco_body',
-            });
-
-            const rCells = Math.max(1, Math.round(expectedR / CELL_SIZE));
-            for (let dx = -rCells; dx <= rCells; dx++) {
-              for (let dy = -rCells; dy <= rCells; dy++) {
-                occupied.add(`${gx + dx},${gy + dy}`);
-              }
-            }
-          }
-        }
-      }
-
-      return extraHeads;
-    } catch {
-      return [];
-    }
+    this.densityEstimate = this.estimateDensityGrid(refined, width, height);
+    return this.applyNMS(refined);
   }
 
   private refineCrowdDetections(detections: DetectedEntity[], frameWidth = 1280, frameHeight = 720): DetectedEntity[] {
