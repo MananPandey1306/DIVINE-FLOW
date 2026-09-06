@@ -9,9 +9,7 @@ import {
   VolumeX,
   FileText,
   Flame,
-  Bot,
   Sparkles,
-  Activity,
 } from 'lucide-react';
 import { VenueConfig, RiskLevel } from '../../types';
 import { audioService } from '../../services/audioSynthesizer';
@@ -83,8 +81,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             justifyContent: 'center',
             fontSize: '19px',
             flexShrink: 0,
-            boxShadow: '0 0 20px rgba(124, 58, 237, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
+            boxShadow: '0 4px 14px rgba(109, 40, 217, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
           }}>
             🏹
           </div>
@@ -97,15 +95,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 color: 'var(--text-primary)',
                 letterSpacing: '-0.02em',
               }}>
-                श्री राम <span style={{ color: '#c084fc' }}>AI Command</span>
+                श्री राम <span style={{ color: '#6d28d9' }}>AI Command</span>
               </span>
               <span style={{
                 fontSize: '10px',
-                background: 'rgba(124, 58, 237, 0.2)',
-                color: '#e9d5ff',
+                background: 'rgba(109, 40, 217, 0.08)',
+                color: '#6d28d9',
                 padding: '2px 8px',
                 borderRadius: '9999px',
-                border: '1px solid rgba(168, 85, 247, 0.35)',
+                border: '1px solid rgba(124, 58, 237, 0.25)',
                 fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
               }}>
@@ -118,11 +116,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {venue.name}
               </span>
               <span style={{ color: 'var(--text-faint)' }}>·</span>
-              <span style={{ fontSize: '11px', color: '#c084fc', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '11px', color: '#6d28d9', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {timeStr} IST
               </span>
               <span style={{ color: 'var(--text-faint)' }}>·</span>
-              <span style={{ fontSize: '11px', color: venue.environment.weather === 'rain' ? '#60a5fa' : 'var(--green)', fontWeight: 600 }}>
+              <span style={{ fontSize: '11px', color: venue.environment.weather === 'rain' ? '#0284c7' : 'var(--green)', fontWeight: 600 }}>
                 {venue.environment.weather === 'rain' ? '🌧️ Rain' : '☀️ 27°C'}
               </span>
             </div>
@@ -132,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* ── Spacer ── */}
         <div style={{ flex: 1 }} />
 
-        {/* ── Nav Dock Switcher (Pill style like Hostinger bottom dock) ── */}
+        {/* ── Nav Dock Switcher ── */}
         <nav className="dock-segment-container">
           {tabs.map(({ id, icon: Icon, label }) => {
             const active = currentTab === id;
@@ -161,7 +159,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     fontWeight: 800,
                     display: 'flex',
                     alignItems: 'center',
-                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)',
+                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.4)',
                     minWidth: '18px',
                     justifyContent: 'center',
                   }}>
@@ -179,13 +177,13 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* ── Right Action Controls ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
 
-          {/* AI Agent / YOLO status badge (like Hostinger Agent button) */}
+          {/* AI Agent / YOLO status badge */}
           <button
             onClick={onOpenDetectionApi}
             style={{
-              background: 'rgba(124, 58, 237, 0.16)',
-              border: '1px solid rgba(168, 85, 247, 0.35)',
-              color: '#e9d5ff',
+              background: 'rgba(109, 40, 217, 0.08)',
+              border: '1px solid rgba(124, 58, 237, 0.25)',
+              color: '#6d28d9',
               borderRadius: '9999px',
               padding: '6px 14px',
               fontSize: '12px',
@@ -195,11 +193,10 @@ export const Navbar: React.FC<NavbarProps> = ({
               alignItems: 'center',
               gap: '6px',
               transition: 'all 0.2s ease',
-              backdropFilter: 'blur(10px)',
             }}
             title="Configure YOLO AI Engine"
           >
-            <Sparkles size={13} color="#c084fc" />
+            <Sparkles size={13} color="#6d28d9" />
             AI Agent
           </button>
 
@@ -210,8 +207,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             gap: '6px',
             padding: '6px 12px',
             borderRadius: '9999px',
-            background: 'rgba(22, 12, 44, 0.8)',
+            background: '#ffffff',
             border: '1px solid var(--border)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
           }}>
             <span className="radar-dot" style={{ width: 6, height: 6 }} />
             <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
