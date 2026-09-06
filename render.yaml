@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: vityarthi-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn yolo_crowd_api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: YOLO_MODEL_PATH
+        value: ../yolov8n.pt
+    healthCheckPath: /api/status
