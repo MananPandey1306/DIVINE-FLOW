@@ -558,55 +558,56 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
             </div>
           </div>
 
-          <div className="video-stage">
-            {scanMode && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '12px',
-                padding: '7px 14px',
-                background: 'linear-gradient(90deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
-                borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
-                fontSize: '0.74rem',
-                color: '#cbd5e1',
-                flexWrap: 'wrap'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#10b981' }}></span>
-                  <span><strong>Live Camera Feed Active:</strong> If you see a black screen with a phone icon, select your laptop's <strong>Integrated Camera</strong> from the dropdown above.</span>
-                </div>
-                {availableDevices.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const currentIdx = availableDevices.findIndex(d => d.deviceId === selectedDeviceId);
-                      const nextIdx = (currentIdx + 1) % availableDevices.length;
-                      const nextDev = availableDevices[nextIdx];
-                      if (nextDev) {
-                        setSelectedDeviceId(nextDev.deviceId);
-                        void startLiveScan(scanMode, nextDev.deviceId);
-                      }
-                    }}
-                    style={{
-                      background: 'rgba(56, 189, 248, 0.15)',
-                      color: '#38bdf8',
-                      border: '1px solid rgba(56, 189, 248, 0.4)',
-                      borderRadius: '6px',
-                      padding: '3px 9px',
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '5px',
-                    }}
-                  >
-                    🔄 Switch Camera Device
-                  </button>
-                )}
+          {scanMode && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              padding: '8px 16px',
+              background: 'linear-gradient(90deg, #0f172a, #1e293b)',
+              borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+              fontSize: '0.74rem',
+              color: '#cbd5e1',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }}></span>
+                <span><strong>Live Camera Feed Active:</strong> If you see a black screen with a phone icon, select your laptop's <strong>Integrated Camera</strong> from the dropdown above.</span>
               </div>
-            )}
+              {availableDevices.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentIdx = availableDevices.findIndex(d => d.deviceId === selectedDeviceId);
+                    const nextIdx = (currentIdx + 1) % availableDevices.length;
+                    const nextDev = availableDevices[nextIdx];
+                    if (nextDev) {
+                      setSelectedDeviceId(nextDev.deviceId);
+                      void startLiveScan(scanMode, nextDev.deviceId);
+                    }
+                  }}
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    borderRadius: '6px',
+                    padding: '3px 9px',
+                    fontSize: '0.72rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                  }}
+                >
+                  🔄 Switch Camera Device
+                </button>
+              )}
+            </div>
+          )}
+
+          <div className="video-stage">
             <video
               ref={videoRef}
               muted
@@ -649,7 +650,16 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
             )}
 
             {selectedMedia.length > 0 && selectedMedia.some((item) => item.type === 'video') && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '10px 12px 0', justifyContent: 'flex-start' }}>
+              <div style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '12px',
+                zIndex: 10,
+                display: 'flex',
+                flexWrap: 'wrap',
+                gap: '8px',
+                maxWidth: 'calc(100% - 24px)'
+              }}>
                 {selectedMedia.map((item) => (
                   <button
                     key={item.id}
@@ -659,13 +669,16 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
                       void playGateMedia(selectedGateId);
                     }}
                     style={{
-                      background: activeVideoMediaId === item.id ? 'rgba(14,165,233,0.2)' : 'rgba(15,23,42,0.7)',
+                      background: activeVideoMediaId === item.id ? 'rgba(14,165,233,0.35)' : 'rgba(15,23,42,0.85)',
+                      backdropFilter: 'blur(8px)',
                       color: '#e2e8f0',
-                      border: activeVideoMediaId === item.id ? '1px solid rgba(14,165,233,0.6)' : '1px solid rgba(255,255,255,0.1)',
+                      border: activeVideoMediaId === item.id ? '1px solid rgba(14,165,233,0.8)' : '1px solid rgba(255,255,255,0.15)',
                       borderRadius: '999px',
-                      padding: '6px 10px',
+                      padding: '5px 12px',
                       fontSize: '0.72rem',
+                      fontWeight: 600,
                       cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                     }}
                   >
                     {item.sourceType === 'ip' ? 'IP Camera' : 'Video'} • {item.name.length > 18 ? `${item.name.slice(0, 18)}…` : item.name}

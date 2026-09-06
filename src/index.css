@@ -996,7 +996,8 @@ body::before {
 .video-stage {
   position: relative;
   width: 100%;
-  min-height: 480px;
+  aspect-ratio: 16 / 9;
+  min-height: 360px;
   background: #090414;
   display: flex;
   align-items: center;
@@ -1006,8 +1007,7 @@ body::before {
 
 .video-stage canvas {
   width: 100%;
-  height: auto;
-  max-height: 640px;
+  height: 100%;
   display: block;
   object-fit: contain;
 }
