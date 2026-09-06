@@ -10,6 +10,7 @@ import {
   FileText,
   Flame,
   Bot,
+  Sparkles,
   Activity,
 } from 'lucide-react';
 import { VenueConfig, RiskLevel } from '../../types';
@@ -70,15 +71,20 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="app-header">
       <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '16px' }}>
 
-        {/* ── Logo + Title ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        {/* ── Logo + Brand ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{
-            width: 34, height: 34,
-            background: 'linear-gradient(135deg, #5b6af5, #3b4dd4)',
-            borderRadius: '9px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '18px', flexShrink: 0,
-            boxShadow: '0 0 16px rgba(91,106,245,0.4)',
+            width: 38,
+            height: 38,
+            background: 'linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '19px',
+            flexShrink: 0,
+            boxShadow: '0 0 20px rgba(124, 58, 237, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
           }}>
             🏹
           </div>
@@ -86,27 +92,33 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{
                 fontFamily: 'var(--font-display)',
-                fontSize: '15px', fontWeight: 800,
-                color: 'var(--text-primary)', letterSpacing: '-0.02em',
+                fontSize: '16px',
+                fontWeight: 800,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.02em',
               }}>
-                श्री राम <span style={{ color: '#5b6af5' }}>Command</span>
+                श्री राम <span style={{ color: '#c084fc' }}>AI Command</span>
               </span>
               <span style={{
-                fontSize: '10px', background: 'rgba(91,106,245,0.15)',
-                color: '#7c87f7', padding: '1px 7px', borderRadius: '99px',
-                border: '1px solid rgba(91,106,245,0.3)', fontWeight: 700,
+                fontSize: '10px',
+                background: 'rgba(124, 58, 237, 0.2)',
+                color: '#e9d5ff',
+                padding: '2px 8px',
+                borderRadius: '9999px',
+                border: '1px solid rgba(168, 85, 247, 0.35)',
+                fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
               }}>
                 AYODHYA DHAM
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '2px' }}>
-              <span className="radar-dot" style={{ width: 5, height: 5 }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>
+              <span className="radar-dot" style={{ width: 6, height: 6 }} />
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                 {venue.name}
               </span>
               <span style={{ color: 'var(--text-faint)' }}>·</span>
-              <span style={{ fontSize: '11px', color: '#5b6af5', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ fontSize: '11px', color: '#c084fc', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                 {timeStr} IST
               </span>
               <span style={{ color: 'var(--text-faint)' }}>·</span>
@@ -120,27 +132,19 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* ── Spacer ── */}
         <div style={{ flex: 1 }} />
 
-        {/* ── Nav Tabs ── */}
-        <nav style={{
-          display: 'flex', gap: '2px',
-          background: 'var(--bg-overlay)',
-          padding: '3px', borderRadius: '10px',
-          border: '1px solid var(--border)',
-        }}>
+        {/* ── Nav Dock Switcher (Pill style like Hostinger bottom dock) ── */}
+        <nav className="dock-segment-container">
           {tabs.map(({ id, icon: Icon, label }) => {
             const active = currentTab === id;
             return (
               <button
                 key={id}
                 onClick={() => setCurrentTab(id)}
+                className={`dock-segment-btn ${active ? 'active' : ''}`}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 14px', borderRadius: '8px',
-                  border: active ? '1px solid var(--border-md)' : '1px solid transparent',
-                  cursor: 'pointer', fontSize: '13px', fontWeight: 600,
-                  background: active ? 'var(--bg-subtle)' : 'transparent',
-                  color: active ? 'var(--text-primary)' : 'var(--text-muted)',
-                  transition: 'all 0.15s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
                   position: 'relative',
                 }}
               >
@@ -148,12 +152,18 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {label}
                 {id === 'command_center' && activeAlertCount > 0 && (
                   <span style={{
-                    background: 'var(--red)', color: '#fff',
-                    fontSize: '10px', padding: '0 5px', height: '16px',
-                    borderRadius: '99px', fontWeight: 800,
-                    display: 'flex', alignItems: 'center',
-                    boxShadow: '0 0 8px rgba(239,68,68,0.5)',
-                    minWidth: '16px', justifyContent: 'center',
+                    background: 'var(--red)',
+                    color: '#fff',
+                    fontSize: '10px',
+                    padding: '0 6px',
+                    height: '18px',
+                    borderRadius: '9999px',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    boxShadow: '0 0 10px rgba(239, 68, 68, 0.6)',
+                    minWidth: '18px',
+                    justifyContent: 'center',
                   }}>
                     {activeAlertCount}
                   </span>
@@ -163,52 +173,79 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        {/* ── Right Actions ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+        {/* ── Spacer ── */}
+        <div style={{ flex: 1 }} />
 
-          {/* Live pulse indicator */}
+        {/* ── Right Action Controls ── */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+
+          {/* AI Agent / YOLO status badge (like Hostinger Agent button) */}
+          <button
+            onClick={onOpenDetectionApi}
+            style={{
+              background: 'rgba(124, 58, 237, 0.16)',
+              border: '1px solid rgba(168, 85, 247, 0.35)',
+              color: '#e9d5ff',
+              borderRadius: '9999px',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+              backdropFilter: 'blur(10px)',
+            }}
+            title="Configure YOLO AI Engine"
+          >
+            <Sparkles size={13} color="#c084fc" />
+            AI Agent
+          </button>
+
+          {/* Live indicator badge */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '5px 10px', borderRadius: '8px',
-            background: 'var(--bg-overlay)', border: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            borderRadius: '9999px',
+            background: 'rgba(22, 12, 44, 0.8)',
+            border: '1px solid var(--border)',
           }}>
-            <span className="radar-dot" style={{ width: 5, height: 5 }} />
-            <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+            <span className="radar-dot" style={{ width: 6, height: 6 }} />
+            <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 800, fontFamily: 'var(--font-mono)' }}>
               LIVE
             </span>
           </div>
 
-          <button onClick={toggleSound} className="btn btn-secondary" title={soundEnabled ? 'Mute alerts' : 'Enable alerts'} style={{ padding: '6px 10px', minHeight: 32 }}>
+          <button onClick={toggleSound} className="btn btn-secondary" title={soundEnabled ? 'Mute audio' : 'Enable audio'} style={{ padding: '6px 10px', minHeight: 34 }}>
             {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} style={{ color: 'var(--text-muted)' }} />}
           </button>
 
-          <button onClick={onOpenBroadcast} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', minHeight: 32 }}>
+          <button onClick={onOpenBroadcast} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 14px', minHeight: 34 }}>
             <Radio size={13} />
             PA Broadcast
           </button>
 
-          <button onClick={onOpenIncidentLog} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 12px', minHeight: 32 }}>
+          <button onClick={onOpenIncidentLog} className="btn btn-secondary" style={{ fontSize: '12px', padding: '6px 14px', minHeight: 34 }}>
             <FileText size={13} />
             Audit Log
           </button>
 
-          <button onClick={onOpenSetup} className="btn btn-secondary" title="Configure Venue" style={{ padding: '6px 10px', minHeight: 32 }}>
+          <button onClick={onOpenSetup} className="btn btn-secondary" title="Venue Settings" style={{ padding: '6px 10px', minHeight: 34 }}>
             <Settings size={14} />
           </button>
 
-          <button onClick={onOpenDetectionApi} className="btn btn-secondary" title="YOLO Detection API" style={{ padding: '6px 10px', minHeight: 32 }}>
-            <Bot size={14} />
-          </button>
-
           {/* Divider */}
-          <div style={{ width: 1, height: 24, background: 'var(--border)', margin: '0 4px' }} />
+          <div style={{ width: 1, height: 26, background: 'var(--border)', margin: '0 4px' }} />
 
           <button
             onClick={onOpenSOS}
             className="btn btn-sos"
-            style={{ fontSize: '12px', padding: '6px 14px', minHeight: 32, letterSpacing: '0.04em' }}
+            style={{ fontSize: '12px', padding: '6px 16px', minHeight: 34, letterSpacing: '0.04em' }}
           >
-            <Flame size={13} />
+            <Flame size={14} />
             SOS
           </button>
         </div>
