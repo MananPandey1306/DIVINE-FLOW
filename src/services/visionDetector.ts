@@ -73,8 +73,8 @@ export class VisionDetector {
   private sensitivity: "low" | "medium" | "high" | "ultra" | "max" = "medium";
   private detectionMode: "mediapipe_crowd_face" | "mediapipe_short" | "hybrid" | "cloud_api" = "hybrid";
   private viewMode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid" = "reticles";
-  private confidenceThreshold = 0.32;
-  private cocoConfidenceThreshold = 0.24;
+  private confidenceThreshold = 0.20;
+  private cocoConfidenceThreshold = 0.15;
   private countMultiplier = 1.0;
   private manualOffset = 0;
 
@@ -256,11 +256,11 @@ export class VisionDetector {
 
   public setSensitivity(s: "low" | "medium" | "high" | "ultra" | "max") {
     this.sensitivity = s;
-    if (s === "low") { this.confidenceThreshold = 0.44; this.cocoConfidenceThreshold = 0.34; }
-    else if (s === "medium") { this.confidenceThreshold = 0.32; this.cocoConfidenceThreshold = 0.24; }
-    else if (s === "high") { this.confidenceThreshold = 0.24; this.cocoConfidenceThreshold = 0.17; }
-    else if (s === "ultra") { this.confidenceThreshold = 0.16; this.cocoConfidenceThreshold = 0.12; }
-    else if (s === "max") { this.confidenceThreshold = 0.12; this.cocoConfidenceThreshold = 0.08; }
+    if (s === "low") { this.confidenceThreshold = 0.22; this.cocoConfidenceThreshold = 0.16; }
+    else if (s === "medium") { this.confidenceThreshold = 0.16; this.cocoConfidenceThreshold = 0.12; }
+    else if (s === "high") { this.confidenceThreshold = 0.10; this.cocoConfidenceThreshold = 0.08; }
+    else if (s === "ultra") { this.confidenceThreshold = 0.07; this.cocoConfidenceThreshold = 0.05; }
+    else if (s === "max") { this.confidenceThreshold = 0.05; this.cocoConfidenceThreshold = 0.04; }
     try { this.blazefaceVideoDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
     try { this.blazefaceImageDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
   }
@@ -520,7 +520,7 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections, width, height);
-    const omegaHeads = this.sensitivity !== 'low' ? this.detectOmegaHeads(video, width, height, refined) : [];
+    const omegaHeads = this.detectOmegaHeads(video, width, height, refined);
     const combined = [...refined, ...omegaHeads];
 
     if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
@@ -590,7 +590,7 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections, width, height);
-    const omegaHeads = this.sensitivity !== 'low' ? this.detectOmegaHeads(source, width, height, refined) : [];
+    const omegaHeads = this.detectOmegaHeads(source, width, height, refined);
     const combined = [...refined, ...omegaHeads];
 
     if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
@@ -624,28 +624,38 @@ export class VisionDetector {
       const extraHeads: DetectedEntity[] = [];
       const occupied = new Set<string>();
 
-      // Mark anchor detections
+      // Grid cell size in downscaled space
+      const CELL_SIZE = 6;
+
+      // Mark anchor detections in occupancy grid with precise radius
       anchorDetections.forEach((a) => {
         const ax = (a.headX / width) * sw;
         const ay = (a.headY / height) * sh;
-        const gridX = Math.round(ax / 8);
-        const gridY = Math.round(ay / 8);
-        for (let dx = -2; dx <= 2; dx++) {
-          for (let dy = -2; dy <= 2; dy++) {
-            occupied.add(`${gridX + dx},${gridY + dy}`);
+        const gx = Math.round(ax / CELL_SIZE);
+        const gy = Math.round(ay / CELL_SIZE);
+        const rCells = Math.max(1, Math.round(((a.headRadius || 12) / width) * sw / CELL_SIZE));
+        for (let dx = -rCells; dx <= rCells; dx++) {
+          for (let dy = -rCells; dy <= rCells; dy++) {
+            occupied.add(`${gx + dx},${gy + dy}`);
           }
         }
       });
 
-      const stepY = 8;
-      for (let sy = 24; sy < sh - 20; sy += stepY) {
-        const yRatio = sy / sh;
-        const expectedR = Math.max(3.2, Math.min(13, 2.5 + yRatio * 9.5));
-        const stepX = Math.max(7, Math.round(expectedR * 1.5));
+      // Adaptive sensitivity thresholds
+      const sens = this.sensitivity;
+      const minContrastDiff = sens === 'low' ? 7.5 : sens === 'medium' ? 4.5 : sens === 'high' ? 3.0 : 2.0;
+      const minGradCount = sens === 'low' ? 4 : sens === 'medium' ? 3 : 3;
 
-        for (let sx = 16; sx < sw - 16; sx += stepX) {
-          const gx = Math.round(sx / 8);
-          const gy = Math.round(sy / 8);
+      const stepY = 5;
+      for (let sy = 16; sy < sh - 14; sy += stepY) {
+        const yRatio = sy / sh;
+        // Perspective scaling: top background has smaller heads (~3-5px), foreground has larger heads (~8-14px)
+        const expectedR = Math.max(2.8, Math.min(14, 2.2 + yRatio * 10.5));
+        const stepX = Math.max(4, Math.round(expectedR * 0.85));
+
+        for (let sx = 10; sx < sw - 10; sx += stepX) {
+          const gx = Math.round(sx / CELL_SIZE);
+          const gy = Math.round(sy / CELL_SIZE);
           if (occupied.has(`${gx},${gy}`)) continue;
 
           // Center luminance (3x3 average)
@@ -653,42 +663,50 @@ export class VisionDetector {
           let centerCount = 0;
           for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
-              const idx = ((sy + dy) * sw + (sx + dx)) * 4;
-              centerLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-              centerCount++;
+              const px = sx + dx;
+              const py = sy + dy;
+              if (px >= 0 && px < sw && py >= 0 && py < sh) {
+                const idx = (py * sw + px) * 4;
+                centerLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+                centerCount++;
+              }
             }
           }
-          centerLum /= centerCount;
+          centerLum /= (centerCount || 1);
 
-          if (centerLum < 15 || centerLum > 230) continue;
+          if (centerLum < 10 || centerLum > 245) continue;
 
-          // Radial ring sampling
+          // Radial ring sampling across 8 compass directions
           const angles = [0, 45, 90, 135, 180, 225, 270, 315];
           let outwardGradientCount = 0;
           let ringLumSum = 0;
+          let validSamples = 0;
 
           for (const deg of angles) {
             const rad = (deg * Math.PI) / 180;
-            const rx = Math.round(sx + Math.cos(rad) * expectedR);
+            const rx = Math.round(sx + Math.cos(rad) * (expectedR * 0.88));
             const ry = Math.round(sy + Math.sin(rad) * expectedR);
             if (rx < 0 || rx >= sw || ry < 0 || ry >= sh) continue;
 
             const idx = (ry * sw + rx) * 4;
             const ringLum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
             ringLumSum += ringLum;
+            validSamples++;
 
-            if (Math.abs(ringLum - centerLum) > 15) {
+            if (Math.abs(ringLum - centerLum) >= minContrastDiff * 1.1) {
               outwardGradientCount++;
             }
           }
 
-          const avgRingLum = ringLumSum / angles.length;
+          if (validSamples < 6) continue;
+
+          const avgRingLum = ringLumSum / validSamples;
           const contrastDiff = Math.abs(avgRingLum - centerLum);
 
-          if (outwardGradientCount >= 5 && contrastDiff > 13) {
+          if (outwardGradientCount >= minGradCount && contrastDiff >= minContrastDiff) {
             const worldX = (sx / sw) * width;
             const worldY = (sy / sh) * height;
-            const worldR = Math.max(5, (expectedR / sw) * width);
+            const worldR = Math.max(4.5, (expectedR / sw) * width);
             const bodyW = worldR * 2.2;
             const bodyH = worldR * 3.4;
 
@@ -701,7 +719,7 @@ export class VisionDetector {
               headX: worldX,
               headY: worldY,
               headRadius: worldR,
-              confidence: Math.min(0.88, Math.max(0.68, 0.65 + (outwardGradientCount / 8) * 0.22)),
+              confidence: Math.min(0.88, Math.max(0.60, 0.55 + (outwardGradientCount / 8) * 0.25)),
               label: `Person #${anchorDetections.length + extraHeads.length + 1}`,
               trackAge: 10,
               distanceTier: yRatio > 0.62 ? 'close' : yRatio > 0.28 ? 'mid' : 'far',
@@ -710,8 +728,9 @@ export class VisionDetector {
               detectionSource: 'coco_body',
             });
 
-            for (let dx = -2; dx <= 2; dx++) {
-              for (let dy = -2; dy <= 2; dy++) {
+            const rCells = Math.max(1, Math.round(expectedR / CELL_SIZE));
+            for (let dx = -rCells; dx <= rCells; dx++) {
+              for (let dy = -rCells; dy <= rCells; dy++) {
                 occupied.add(`${gx + dx},${gy + dy}`);
               }
             }
@@ -1028,7 +1047,7 @@ export class VisionDetector {
       .filter(Boolean) as DetectedEntity[];
   }
 
-  private applyNMS(detections: DetectedEntity[], iouThreshold = 0.35): DetectedEntity[] {
+  private applyNMS(detections: DetectedEntity[], iouThreshold = 0.45): DetectedEntity[] {
     detections.sort((a, b) => b.confidence - a.confidence);
     const accepted: DetectedEntity[] = [];
     for (const cand of detections) {
@@ -1046,12 +1065,12 @@ export class VisionDetector {
         const ky2 = kept.y + kept.height / 2;
         const keptArea = kept.width * kept.height;
 
-        // Proximity check on center points and head points
-        const centerDist = Math.hypot(kept.x - cand.x, kept.y - cand.y);
+        // Proximity check on head points
         const headDist = Math.hypot(kept.headX - cand.headX, kept.headY - cand.headY);
-        const minDim = Math.min(kept.width, cand.width);
+        const minHeadR = Math.min(kept.headRadius, cand.headRadius);
 
-        if (centerDist < minDim * 0.55 || headDist < Math.max(14, kept.headRadius * 1.5)) {
+        // Suppress only if head centers are overlapping/virtually identical
+        if (headDist < Math.max(7, minHeadR * 0.82)) {
           suppressed = true;
           break;
         }
