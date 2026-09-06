@@ -107,8 +107,8 @@ export class VisionDetector {
 
   private simulatedCrowdNodes: Array<{ x: number; y: number; vx: number; vy: number; size: number; distance: "close" | "mid" | "far" }> = [];
   private remoteDetectionApiUrl = typeof import.meta !== "undefined"
-    ? ((import.meta as any).env?.VITE_DETECTION_API_URL ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('cams-pro-detection-api-url') ?? 'http://localhost:8000/api/detect' : 'http://localhost:8000/api/detect'))
-    : 'http://localhost:8000/api/detect';
+    ? ((import.meta as any).env?.VITE_DETECTION_API_URL ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('cams-pro-detection-api-url') ?? '' : ''))
+    : '';
 
   constructor() {
     this.initSimulatedCrowd();
@@ -520,14 +520,16 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections, width, height);
+    const omegaHeads = this.sensitivity !== 'low' ? this.detectOmegaHeads(video, width, height, refined) : [];
+    const combined = [...refined, ...omegaHeads];
 
-    if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
-      this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
+    if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = `Multi-Tier Crowd AI (${combined.length} heads)`;
+      this.activeEngines = "BlazeFace + COCO-SSD + Omega-Head AI";
     }
 
-    this.densityEstimate = this.estimateDensityGrid(refined, width, height);
-    return this.applyNMS(refined);
+    this.densityEstimate = this.estimateDensityGrid(combined, width, height);
+    return this.applyNMS(combined);
   }
 
   private async runImageDetection(source: HTMLImageElement | HTMLCanvasElement, width: number, height: number): Promise<DetectedEntity[]> {
@@ -588,14 +590,139 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections, width, height);
+    const omegaHeads = this.sensitivity !== 'low' ? this.detectOmegaHeads(source, width, height, refined) : [];
+    const combined = [...refined, ...omegaHeads];
 
-    if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
-      this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
+    if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = `Multi-Tier Crowd AI (${combined.length} heads)`;
+      this.activeEngines = "BlazeFace + COCO-SSD + Omega-Head AI";
     }
 
-    this.densityEstimate = this.estimateDensityGrid(refined, width, height);
-    return this.applyNMS(refined);
+    this.densityEstimate = this.estimateDensityGrid(combined, width, height);
+    return this.applyNMS(combined);
+  }
+
+  private detectOmegaHeads(
+    source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
+    width: number,
+    height: number,
+    anchorDetections: DetectedEntity[]
+  ): DetectedEntity[] {
+    const sw = 360;
+    const sh = 200;
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = sw;
+    tempCanvas.height = sh;
+    const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return [];
+
+    try {
+      ctx.drawImage(source, 0, 0, sw, sh);
+      const imgData = ctx.getImageData(0, 0, sw, sh);
+      const data = imgData.data;
+
+      const extraHeads: DetectedEntity[] = [];
+      const occupied = new Set<string>();
+
+      // Mark anchor detections
+      anchorDetections.forEach((a) => {
+        const ax = (a.headX / width) * sw;
+        const ay = (a.headY / height) * sh;
+        const gridX = Math.round(ax / 8);
+        const gridY = Math.round(ay / 8);
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dy = -2; dy <= 2; dy++) {
+            occupied.add(`${gridX + dx},${gridY + dy}`);
+          }
+        }
+      });
+
+      const stepY = 8;
+      for (let sy = 24; sy < sh - 20; sy += stepY) {
+        const yRatio = sy / sh;
+        const expectedR = Math.max(3.2, Math.min(13, 2.5 + yRatio * 9.5));
+        const stepX = Math.max(7, Math.round(expectedR * 1.5));
+
+        for (let sx = 16; sx < sw - 16; sx += stepX) {
+          const gx = Math.round(sx / 8);
+          const gy = Math.round(sy / 8);
+          if (occupied.has(`${gx},${gy}`)) continue;
+
+          // Center luminance (3x3 average)
+          let centerLum = 0;
+          let centerCount = 0;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const idx = ((sy + dy) * sw + (sx + dx)) * 4;
+              centerLum += 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+              centerCount++;
+            }
+          }
+          centerLum /= centerCount;
+
+          if (centerLum < 15 || centerLum > 230) continue;
+
+          // Radial ring sampling
+          const angles = [0, 45, 90, 135, 180, 225, 270, 315];
+          let outwardGradientCount = 0;
+          let ringLumSum = 0;
+
+          for (const deg of angles) {
+            const rad = (deg * Math.PI) / 180;
+            const rx = Math.round(sx + Math.cos(rad) * expectedR);
+            const ry = Math.round(sy + Math.sin(rad) * expectedR);
+            if (rx < 0 || rx >= sw || ry < 0 || ry >= sh) continue;
+
+            const idx = (ry * sw + rx) * 4;
+            const ringLum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+            ringLumSum += ringLum;
+
+            if (Math.abs(ringLum - centerLum) > 15) {
+              outwardGradientCount++;
+            }
+          }
+
+          const avgRingLum = ringLumSum / angles.length;
+          const contrastDiff = Math.abs(avgRingLum - centerLum);
+
+          if (outwardGradientCount >= 5 && contrastDiff > 13) {
+            const worldX = (sx / sw) * width;
+            const worldY = (sy / sh) * height;
+            const worldR = Math.max(5, (expectedR / sw) * width);
+            const bodyW = worldR * 2.2;
+            const bodyH = worldR * 3.4;
+
+            extraHeads.push({
+              id: anchorDetections.length + extraHeads.length + 1,
+              x: worldX,
+              y: worldY + worldR * 1.1,
+              width: bodyW,
+              height: bodyH,
+              headX: worldX,
+              headY: worldY,
+              headRadius: worldR,
+              confidence: Math.min(0.88, Math.max(0.68, 0.65 + (outwardGradientCount / 8) * 0.22)),
+              label: `Person #${anchorDetections.length + extraHeads.length + 1}`,
+              trackAge: 10,
+              distanceTier: yRatio > 0.62 ? 'close' : yRatio > 0.28 ? 'mid' : 'far',
+              viewOrientation: 'rear_or_side',
+              rowCategory: yRatio < 0.35 ? 'background' : yRatio < 0.68 ? 'midground' : 'foreground',
+              detectionSource: 'coco_body',
+            });
+
+            for (let dx = -2; dx <= 2; dx++) {
+              for (let dy = -2; dy <= 2; dy++) {
+                occupied.add(`${gx + dx},${gy + dy}`);
+              }
+            }
+          }
+        }
+      }
+
+      return extraHeads;
+    } catch {
+      return [];
+    }
   }
 
   private refineCrowdDetections(detections: DetectedEntity[], frameWidth = 1280, frameHeight = 720): DetectedEntity[] {
