@@ -12,10 +12,11 @@ interface SpatialVenueMapProps {
 }
 
 interface Particle {
-  x: number;
-  y: number;
-  targetGateIndex: number;
+  gateIndex: number;
+  direction: 'ingress' | 'egress';
+  progress: number;
   speed: number;
+  laneOffset: number;
   alpha: number;
   trail: Array<{ x: number; y: number }>;
 }
@@ -39,17 +40,30 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
   const animationTimeRef = useRef(0);
   const lastRenderTimeRef = useRef<number | null>(null);
 
-  // Initialize flow particles with trails
+  // Initialize flow particles with realistic corridor progression
   useEffect(() => {
     const pList: Particle[] = [];
-    for (let i = 0; i < 110; i++) {
-      const gIdx = Math.floor(Math.random() * Math.max(1, gates.length));
+    const count = 150;
+    for (let i = 0; i < count; i++) {
+      const gIdx = i % Math.max(1, gates.length);
+      const gate = gates[gIdx];
+      const dir: 'ingress' | 'egress' = gate
+        ? gate.gateType === 'exit'
+          ? 'egress'
+          : gate.gateType === 'entry'
+          ? 'ingress'
+          : Math.random() > 0.4
+          ? 'ingress'
+          : 'egress'
+        : 'ingress';
+
       pList.push({
-        x: 50 + (Math.random() - 0.5) * 60,
-        y: 50 + (Math.random() - 0.5) * 60,
-        targetGateIndex: gIdx,
-        speed: 0.2 + Math.random() * 0.35,
-        alpha: 0.4 + Math.random() * 0.6,
+        gateIndex: gIdx,
+        direction: dir,
+        progress: Math.random(),
+        speed: 0.12 + Math.random() * 0.18,
+        laneOffset: (Math.random() - 0.5) * 16,
+        alpha: 0.6 + Math.random() * 0.4,
         trail: [],
       });
     }
@@ -264,31 +278,63 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
       // 5. Draw Animated Devotee Flow Particles with Saffron/Cyan Comet Trails
       if (showParticles && gates.length > 0) {
         particlesRef.current.forEach((p) => {
-          const targetGate = gates[p.targetGateIndex % gates.length];
+          const targetGate = gates[p.gateIndex % gates.length];
+          if (!targetGate) return;
+
           const gx = (targetGate.location.x / 100) * width;
           const gy = (targetGate.location.y / 100) * height;
 
-          const dx = gx - p.x;
-          const dy = gy - p.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+          // Start & end points of corridor
+          const startX = p.direction === 'ingress' ? gx : centerX;
+          const startY = p.direction === 'ingress' ? gy : centerY;
+          const endX = p.direction === 'ingress' ? centerX : gx;
+          const endY = p.direction === 'ingress' ? centerY : gy;
 
-          if (dist < 18) {
-            p.x = centerX + (Math.random() - 0.5) * 50;
-            p.y = centerY + (Math.random() - 0.5) * 50;
-            p.targetGateIndex = Math.floor(Math.random() * gates.length);
+          const dx = endX - startX;
+          const dy = endY - startY;
+          const dist = Math.hypot(dx, dy) || 1;
+
+          // Perpendicular vector for lane offset
+          const nx = -dy / dist;
+          const ny = dx / dist;
+
+          // Advance progress
+          p.progress += p.speed * deltaSeconds;
+          if (p.progress >= 1.0) {
+            p.progress = 0;
+            p.gateIndex = Math.floor(Math.random() * gates.length);
+            const nextGate = gates[p.gateIndex];
+            p.direction = nextGate
+              ? nextGate.gateType === 'exit'
+                ? 'egress'
+                : nextGate.gateType === 'entry'
+                ? 'ingress'
+                : Math.random() > 0.4
+                ? 'ingress'
+                : 'egress'
+              : 'ingress';
+            p.laneOffset = (Math.random() - 0.5) * 16;
             p.trail = [];
-          } else {
-            const step = Math.min(1.5, p.speed * 105 * deltaSeconds);
-            p.x += (dx / dist) * step;
-            p.y += (dy / dist) * step;
-
-            p.trail.push({ x: p.x, y: p.y });
-            if (p.trail.length > 4) p.trail.shift();
           }
 
-          if (p.trail.length > 1) {
-            ctx.strokeStyle = `rgba(251, 191, 36, ${p.alpha * 0.45})`;
-            ctx.lineWidth = 1.2;
+          const t = p.progress;
+          const px = startX + dx * t + nx * p.laneOffset;
+          const py = startY + dy * t + ny * p.laneOffset;
+
+          p.trail.push({ x: px, y: py });
+          if (p.trail.length > 6) p.trail.shift();
+
+          const isChoke = targetGate.isChokepoint;
+          const isExit = p.direction === 'egress';
+          const trailColor = isChoke ? 'rgba(255, 42, 95,' : isExit ? 'rgba(56, 189, 248,' : 'rgba(251, 191, 36,';
+          const dotColor = isChoke ? '#ff2a5f' : isExit ? '#38bdf8' : '#fbbf24';
+
+          const fade = Math.sin(t * Math.PI); // Smooth fade in and fade out at ends
+          const effectiveAlpha = p.alpha * fade;
+
+          if (p.trail.length > 1 && effectiveAlpha > 0.05) {
+            ctx.strokeStyle = `${trailColor} ${effectiveAlpha * 0.6})`;
+            ctx.lineWidth = 1.8;
             ctx.beginPath();
             ctx.moveTo(p.trail[0].x, p.trail[0].y);
             for (let i = 1; i < p.trail.length; i++) {
@@ -297,10 +343,15 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
             ctx.stroke();
           }
 
-          ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
-          ctx.fill();
+          if (effectiveAlpha > 0.05) {
+            ctx.fillStyle = dotColor;
+            ctx.shadowColor = dotColor;
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.arc(px, py, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
         });
       }
 
@@ -463,11 +514,11 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
             <Layers size={18} />
           </div>
           <div>
-            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: '#f8fafc', letterSpacing: '-0.01em' }}>
-              Shri Ram Janmabhoomi Spatial Radar (तीर्थ क्षेत्र स्थानिक रडार)
+            <h2 style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+              Shri Somnath Jyotirlinga Spatial Radar (તીર્થ ક્ષેત્ર સ્થાનિક રડાર)
             </h2>
-            <p style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
-              Garbhagriha Sanctum, Rampath, Bhakti Path & Saryu Ghat Corridors
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+              Garbhagriha Sanctum, Digvijay Dwar, Samudra Darshan & Arabian Sea Corridors
             </p>
           </div>
         </div>
