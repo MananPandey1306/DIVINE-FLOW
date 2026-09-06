@@ -498,7 +498,14 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
 
           <div className="video-stage">
             <video ref={videoRef} muted playsInline hidden />
-            <canvas ref={canvasRef} width={1280} height={720} />
+            <canvas
+              ref={canvasRef}
+              width={1280}
+              height={720}
+              style={{
+                display: selectedMedia.length > 0 && selectedMedia.some((item) => item.type === 'video') ? 'block' : 'none'
+              }}
+            />
 
             {!selectedMedia.length && (
               <div className="stage-empty">

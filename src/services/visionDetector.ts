@@ -178,7 +178,7 @@ export class VisionDetector {
       }
       this.isBlazefaceReady = true;
       this.modelStatus = "Multi-Tier Crowd AI Active";
-      this.activeEngines = "BlazeFace + COCO-SSD + Dense Grid";
+      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
     } catch (e) {
       console.warn("BlazeFace load failed:", e);
     } finally {
@@ -227,7 +227,7 @@ export class VisionDetector {
       this.cocoModel = await cocoSsd.load({ base: "mobilenet_v2" });
       this.isCocoReady = true;
       this.modelStatus = "Multi-Tier Crowd AI Active";
-      this.activeEngines = "BlazeFace + COCO-SSD + Dense Grid";
+      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
     } catch (e) {
       console.warn("COCO-SSD load failed:", e);
     } finally {
@@ -390,14 +390,29 @@ export class VisionDetector {
   public stop() {
     this.isRunning = false;
     this.lastTrackingTime = 0;
+    this.lastNeuralDetections = [];
+    this.trackedEntities = [];
+    this.trackMisses.clear();
+    this.countHistory = [];
     if (this.animFrameId) {
       cancelAnimationFrame(this.animFrameId);
       this.animFrameId = null;
     }
-    if (this.videoElement?.srcObject) {
-      const stream = this.videoElement.srcObject as MediaStream;
-      stream.getTracks().forEach((t) => t.stop());
-      this.videoElement.srcObject = null;
+    if (this.videoElement) {
+      try {
+        this.videoElement.pause();
+      } catch {}
+      if (this.videoElement.srcObject) {
+        const stream = this.videoElement.srcObject as MediaStream;
+        stream.getTracks().forEach((t) => t.stop());
+        this.videoElement.srcObject = null;
+      }
+    }
+    if (this.canvasElement) {
+      const ctx = this.canvasElement.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+      }
     }
   }
 
