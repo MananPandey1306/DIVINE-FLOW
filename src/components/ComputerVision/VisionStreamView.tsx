@@ -31,7 +31,13 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [ipCameraUrl, setIpCameraUrl] = useState('');
   const [ipError, setIpError] = useState('');
-  const [pendingGateConfig, setPendingGateConfig] = useState<{ gateId: string; files?: File[]; ipUrl?: string } | null>(null);
+  const [pendingGateConfig, setPendingGateConfig] = useState<{
+    gateId: string;
+    files?: File[];
+    ipUrl?: string;
+    scanMode?: 'camera' | 'webcam';
+    deviceId?: string;
+  } | null>(null);
   const [pendingMaxCapacity, setPendingMaxCapacity] = useState(50);
   const [pendingGateType, setPendingGateType] = useState<'entry' | 'exit' | 'both'>('both');
   const [scanMode, setScanMode] = useState<'camera' | 'webcam' | null>(null);
@@ -87,14 +93,18 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
       setStats(nextStats);
 
       if (selectedGateId) {
-        setVisionMedia((prev) => {
-          if (!activeVideoMediaId) return prev;
-          const current = prev[selectedGateId] ?? [];
-          const updated = current.map((item) => item.id === activeVideoMediaId ? { ...item, headCount: count } : item);
-          const finalTotal = updated.reduce((total, item) => total + (Number.isFinite(item.headCount) ? item.headCount : 0), 0);
-          dataIngestionService.updateVisionCount(selectedGateId, finalTotal || count, nextStats.estimatedDemographics ?? defaultDemographics);
-          return { ...prev, [selectedGateId]: updated };
-        });
+        if (activeVideoMediaId) {
+          setVisionMedia((prev) => {
+            const current = prev[selectedGateId] ?? [];
+            const updated = current.map((item) => item.id === activeVideoMediaId ? { ...item, headCount: count } : item);
+            const finalTotal = updated.reduce((total, item) => total + (Number.isFinite(item.headCount) ? item.headCount : 0), 0);
+            dataIngestionService.updateVisionCount(selectedGateId, finalTotal || count, nextStats.estimatedDemographics ?? defaultDemographics);
+            return { ...prev, [selectedGateId]: updated };
+          });
+        } else {
+          // Live Webcam / Camera scanning or direct stream without uploaded file
+          dataIngestionService.updateVisionCount(selectedGateId, count, nextStats.estimatedDemographics ?? defaultDemographics);
+        }
       }
     });
     return () => visionDetector.stop();
@@ -247,10 +257,22 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
     setStats(null);
   }, []);
 
+  const requestLiveScan = useCallback((mode: 'camera' | 'webcam') => {
+    const gateId = selectedGateId || gates[0]?.id;
+    if (!gateId) {
+      setScanError('Select a gate before starting the live scan.');
+      return;
+    }
+    const gate = gates.find((item) => item.id === gateId);
+    setPendingMaxCapacity(gate?.maxSafeCapacity ?? 50);
+    setPendingGateType(gate?.gateType ?? 'both');
+    setPendingGateConfig({ gateId, scanMode: mode, deviceId: selectedDeviceId });
+  }, [gates, selectedDeviceId, selectedGateId]);
+
   const confirmPendingGateConfig = useCallback(() => {
     if (!pendingGateConfig) return;
 
-    const { gateId, files, ipUrl } = pendingGateConfig;
+    const { gateId, files, ipUrl, scanMode: pendingScanMode, deviceId } = pendingGateConfig;
     applyGateMediaConfig(gateId, pendingMaxCapacity, pendingGateType);
 
     if (files && files.length) {
@@ -296,8 +318,12 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
       void playGateMedia(gateId);
     }
 
+    if (pendingScanMode) {
+      void startLiveScan(pendingScanMode, deviceId || selectedDeviceId);
+    }
+
     setPendingGateConfig(null);
-  }, [applyGateMediaConfig, pendingGateConfig, pendingGateType, pendingMaxCapacity, playGateMedia, setVisionMedia]);
+  }, [applyGateMediaConfig, pendingGateConfig, pendingGateType, pendingMaxCapacity, playGateMedia, selectedDeviceId, setVisionMedia, startLiveScan]);
 
   const removeMedia = useCallback((gateId: string, itemId: string) => {
     setVisionMedia((prev) => {
@@ -329,15 +355,19 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
           <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ maxWidth: '440px', padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
               <div>
-                <p style={{ margin: 0, fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94a3b8' }}>Gate setup</p>
-                <h3 style={{ margin: '4px 0 0', fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc' }}>{pendingGate ? `${pendingGate.code} / ${pendingGate.name}` : 'Selected gate'}</h3>
+                <p style={{ margin: 0, fontSize: '0.7rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94a3b8' }}>
+                  {pendingGateConfig.scanMode ? 'Live camera & limit setup' : 'Gate setup'}
+                </p>
+                <h3 style={{ margin: '4px 0 0', fontSize: '1.05rem', fontWeight: 700, color: '#f8fafc' }}>
+                  {pendingGate ? `${pendingGate.code} / ${pendingGate.name.replace(/^Gate \d+ - /, '')}` : 'Selected gate'}
+                </h3>
               </div>
               <button onClick={() => setPendingGateConfig(null)} style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}>✕</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1' }}>Maximum capacity</label>
+                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.75rem', fontWeight: 600, color: '#cbd5e1' }}>Maximum capacity (Safe Limit)</label>
                 <input
                   type="number"
                   min={1}
@@ -363,7 +393,9 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '18px' }}>
               <button className="btn btn-secondary" onClick={() => setPendingGateConfig(null)}>Cancel</button>
-              <button className="btn btn-primary" onClick={confirmPendingGateConfig}>Continue</button>
+              <button className="btn btn-primary" onClick={confirmPendingGateConfig}>
+                {pendingGateConfig.scanMode ? 'Start Live Scan' : 'Continue'}
+              </button>
             </div>
           </div>
         </div>
@@ -461,10 +493,10 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
               ))}
             </select>
           )}
-          <button className="btn btn-secondary" onClick={() => void startLiveScan('camera')} disabled={Boolean(scanMode)}>
+          <button className="btn btn-secondary" onClick={() => requestLiveScan('camera')} disabled={Boolean(scanMode)}>
             <Camera size={16} /> Camera
           </button>
-          <button className="btn btn-primary" onClick={() => void startLiveScan('webcam')} disabled={Boolean(scanMode)}>
+          <button className="btn btn-primary" onClick={() => requestLiveScan('webcam')} disabled={Boolean(scanMode)}>
             <Video size={16} /> Webcam
           </button>
           {scanMode && <button className="btn btn-secondary" onClick={stopLiveScan}>Stop scan</button>}

@@ -36,8 +36,7 @@ export function evaluateRedirectionPlan(
     const risk = riskAssessments.get(g.id);
     const density = (g.currentCount / Math.max(1, g.maxSafeCapacity)) * 100;
     return (
-      g.sensorStatus === 'online' &&
-      measuredGateIds.has(g.id) &&
+      (g.sensorStatus === 'online' || measuredGateIds.has(g.id)) &&
       ((risk && (risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'STAMPEDE_HAZARD' || risk.riskLevel === 'HIGH' || risk.riskLevel === 'MODERATE')) ||
         density >= 60)
     );
@@ -48,12 +47,10 @@ export function evaluateRedirectionPlan(
 
     // Find compatible candidate gates with available capacity:
     // 1. Same compatible type (if source is 'entry', candidate must be 'entry' or 'both')
-    // 2. Sensor is online
-    // 3. Density is lower (at least 8% lower) and under 80% capacity
+    // 2. Sensor is online or available
+    // 3. Density is lower (at least 8% lower) and under 85% capacity
     const candidateGates = gates.filter((candidate) => {
       if (candidate.id === sourceGate.id) return false;
-      if (candidate.sensorStatus !== 'online') return false;
-      if (!measuredGateIds.has(candidate.id)) return false;
 
       // Type compatibility
       if (sourceGate.gateType === 'entry' && candidate.gateType === 'exit') return false;
@@ -63,8 +60,8 @@ export function evaluateRedirectionPlan(
       const candidateRisk = riskAssessments.get(candidate.id);
       const availableCapacity = candidate.maxSafeCapacity - candidate.currentCount;
 
-      const isCandidateSafe = availableCapacity > 200 && candidateDensity < 80 && (!candidateRisk || candidateRisk.riskLevel !== 'CRITICAL' && candidateRisk.riskLevel !== 'STAMPEDE_HAZARD');
-      const hasSignificantDelta = (sourceDensity - candidateDensity) >= 8;
+      const isCandidateSafe = availableCapacity > 0 && candidateDensity < 85 && (!candidateRisk || (candidateRisk.riskLevel !== 'CRITICAL' && candidateRisk.riskLevel !== 'STAMPEDE_HAZARD'));
+      const hasSignificantDelta = (sourceDensity - candidateDensity) >= 6;
 
       return isCandidateSafe && hasSignificantDelta;
     });

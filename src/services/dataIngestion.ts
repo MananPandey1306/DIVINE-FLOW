@@ -33,6 +33,7 @@ export class DataIngestionService {
   private subscribers: Set<() => void> = new Set();
   private visionBoundGateId: string | null = null;
   private visionDataGateIds: Set<string> = new Set();
+  private lastGateVoiceAlertTime: Map<string, number> = new Map();
 
   constructor() {
     this.venue = JSON.parse(JSON.stringify(VENUE_PRESETS[0]));
@@ -363,15 +364,50 @@ export class DataIngestionService {
         };
 
         this.alerts.unshift(newAlert);
-        this.logIncident('ALERT', severity === 'EMERGENCY' ? 'critical' : 'high', `Threshold crossed: ${newAlert.title}`, gate.id, 'Ayodhya Risk Engine');
+        this.logIncident('ALERT', severity === 'EMERGENCY' ? 'critical' : 'high', `Threshold crossed: ${newAlert.title}`, gate.id, 'Risk Engine');
 
         if (this.venue.audioAlertsEnabled) {
+          const now = Date.now();
+          const lastVoiceTime = this.lastGateVoiceAlertTime.get(gate.id) || 0;
+          const shouldSpeak = now - lastVoiceTime >= 14000;
+
           if (severity === 'EMERGENCY') {
             audioService.playSosAlarm();
+            if (shouldSpeak) {
+              this.lastGateVoiceAlertTime.set(gate.id, now);
+              audioService.speakBilingual(
+                `सावधान! ${gate.name} पर क्षमता सीमा पार हो गई है। कृपया कतार में व्यवस्था बनाए रखें।`,
+                `Emergency alert: Safe capacity limit exceeded at ${gate.name}. Please follow safety instructions and proceed with caution.`,
+                true
+              );
+            }
           } else {
             audioService.playUrgentAlert();
+            if (shouldSpeak) {
+              this.lastGateVoiceAlertTime.set(gate.id, now);
+              audioService.speakBilingual(
+                `ध्यान दें! ${gate.name} पर भारी भीड़ है। कृपया वैकल्पिक द्वार का उपयोग करें।`,
+                `Attention please: High crowd density detected at ${gate.name}. Please follow redirection signs.`,
+                true
+              );
+            }
           }
         }
+
+        const autoBroadcast: BroadcastMessage = {
+          id: `auto-bc-${gate.id}-${Date.now()}`,
+          timestamp: Date.now(),
+          title: severity === 'EMERGENCY' ? `CRITICAL: Overcapacity at ${gate.code}` : `High Density Influx at ${gate.code}`,
+          message: `Devotees and ground teams: ${gate.name} is operating at ${risk.densityPercentage}% capacity (${gate.currentCount}/${gate.maxSafeCapacity}). Please follow active redirection paths.`,
+          targetGateId: gate.id,
+          targetGateName: gate.name,
+          channels: ['pa_audio', 'signage', 'sms'],
+          priority: severity === 'EMERGENCY' ? 'emergency' : 'urgent',
+          createdBy: 'AI Risk Engine',
+          active: true,
+        };
+        this.broadcasts.unshift(autoBroadcast);
+        if (this.broadcasts.length > 30) this.broadcasts.pop();
       } else {
         existingActiveAlert.densityPercentage = risk.densityPercentage;
         existingActiveAlert.currentCount = gate.currentCount;
