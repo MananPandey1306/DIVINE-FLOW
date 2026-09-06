@@ -202,10 +202,15 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
     setStats(null);
     audioService.unlockFromUserGesture();
     dataIngestionService.bindVisionFeedToGate(gateId);
-    const started = await visionDetector.startWebcam(video, canvas, mode === 'camera' ? 'environment' : 'user');
-    if (!started) {
+    try {
+      const started = await visionDetector.startWebcam(video, canvas, mode === 'camera' ? 'environment' : 'user');
+      if (!started) {
+        setScanMode(null);
+        setScanError(`Unable to access the ${mode}. Please ensure camera access is allowed in your browser settings.`);
+      }
+    } catch (err: any) {
       setScanMode(null);
-      setScanError(`Unable to access the ${mode}. Check browser camera permission and try again.`);
+      setScanError(`Camera error: ${err?.message || 'Access failed. Please check permissions.'}`);
     }
   }, [gates, selectedGateId]);
 
@@ -497,7 +502,22 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
           </div>
 
           <div className="video-stage">
-            <video ref={videoRef} muted playsInline hidden />
+            <video
+              ref={videoRef}
+              muted
+              playsInline
+              autoPlay
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '1px',
+                height: '1px',
+                opacity: 0,
+                pointerEvents: 'none',
+                zIndex: -1,
+              }}
+            />
             <canvas
               ref={canvasRef}
               width={1280}

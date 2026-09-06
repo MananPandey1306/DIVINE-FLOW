@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   MapPin,
   Eye,
+  Camera,
   Shield,
   Radio,
   AlertTriangle,
@@ -221,6 +222,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </button>
 
+            {/* AI Vision CCTV (Camera Feed) */}
+            <button
+              onClick={() => setCurrentTab('vision_feed')}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '9px 12px',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: 'pointer',
+                background: currentTab === 'vision_feed' ? '#00b894' : 'transparent',
+                color: currentTab === 'vision_feed' ? '#ffffff' : '#334155',
+                fontWeight: 700,
+                fontSize: '13px',
+                textAlign: 'left',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                <Camera size={15} />
+                <span>AI Vision CCTV</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{
+                  fontSize: '9.5px',
+                  background: currentTab === 'vision_feed' ? 'rgba(255,255,255,0.25)' : 'rgba(0, 184, 148, 0.15)',
+                  color: currentTab === 'vision_feed' ? '#ffffff' : '#00b894',
+                  padding: '1px 5px',
+                  borderRadius: '4px',
+                  fontWeight: 800,
+                }}>
+                  ● Live
+                </span>
+              </div>
+            </button>
+
             {/* Crowd Monitoring (Signage Tab) */}
             <button
               onClick={() => setCurrentTab('public_signage')}
@@ -242,50 +281,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
                 <Eye size={15} />
-                <span>Crowd Monitoring</span>
+                <span>Pilgrim Signage</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ fontSize: '9.5px', background: 'rgba(0, 184, 148, 0.15)', color: '#00b894', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
                   ● Live
                 </span>
                 <ExternalLink size={11} color="#94a3b8" />
-              </div>
-            </button>
-
-            {/* Ground Units (Vision Stream Tab) */}
-            <button
-              onClick={() => setCurrentTab('vision_feed')}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                background: currentTab === 'vision_feed' ? '#00b894' : 'transparent',
-                color: currentTab === 'vision_feed' ? '#ffffff' : '#334155',
-                fontWeight: 600,
-                fontSize: '13px',
-                textAlign: 'left',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
-                <Shield size={15} />
-                <span>Ground Units</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{
-                  fontSize: '9.5px',
-                  background: currentTab === 'vision_feed' ? 'rgba(255,255,255,0.25)' : 'rgba(0, 184, 148, 0.15)',
-                  color: currentTab === 'vision_feed' ? '#ffffff' : '#00b894',
-                  padding: '1px 5px',
-                  borderRadius: '4px',
-                  fontWeight: 800,
-                }}>
-                  ● Live
-                </span>
               </div>
             </button>
           </div>

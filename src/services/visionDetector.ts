@@ -299,6 +299,10 @@ export class VisionDetector {
     this.canvasElement = canvas;
     this.mode = "webcam";
     try {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error("getUserMedia is not supported on this browser or connection.");
+      }
+
       video.muted = true;
       video.playsInline = true;
       video.autoplay = true;
@@ -309,15 +313,61 @@ export class VisionDetector {
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } },
           audio: false,
         });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false,
-        });
+      } catch (e1) {
+        console.warn("Primary camera constraints failed, attempting facingMode fallback:", e1);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: facingMode } },
+            audio: false,
+          });
+        } catch (e2) {
+          console.warn("FacingMode fallback failed, attempting generic video: true:", e2);
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+      }
+
+      if (!stream) {
+        throw new Error("Could not acquire media stream from camera.");
       }
 
       video.srcObject = stream;
-      await video.play();
+
+      // Wait for video metadata to populate width/height
+      await new Promise<void>((resolve) => {
+        if (video.readyState >= 1 && video.videoWidth > 0) {
+          resolve();
+        } else {
+          let resolved = false;
+          const onReady = () => {
+            if (!resolved) {
+              resolved = true;
+              video.removeEventListener('loadedmetadata', onReady);
+              video.removeEventListener('canplay', onReady);
+              resolve();
+            }
+          };
+          video.addEventListener('loadedmetadata', onReady, { once: true });
+          video.addEventListener('canplay', onReady, { once: true });
+          setTimeout(() => {
+            if (!resolved) {
+              resolved = true;
+              resolve();
+            }
+          }, 1500);
+        }
+      });
+
+      try {
+        await video.play();
+      } catch (playErr) {
+        console.warn("video.play() retry after re-mute:", playErr);
+        video.muted = true;
+        await video.play();
+      }
+
       canvas.width = video.videoWidth || 1280;
       canvas.height = video.videoHeight || 720;
       this.isRunning = true;
@@ -434,7 +484,18 @@ export class VisionDetector {
     const ctx = this.canvasElement.getContext("2d");
     if (!ctx) return;
     const video = this.videoElement;
+
+    if (video.paused && !video.ended && this.isRunning) {
+      try {
+        video.play().catch(() => {});
+      } catch {}
+    }
+
     if (video.readyState >= 2 && !video.paused && !video.ended) {
+      if (video.videoWidth > 0 && (this.canvasElement.width !== video.videoWidth || this.canvasElement.height !== video.videoHeight)) {
+        this.canvasElement.width = video.videoWidth;
+        this.canvasElement.height = video.videoHeight;
+      }
       const width = this.canvasElement.width;
       const height = this.canvasElement.height;
       ctx.drawImage(video, 0, 0, width, height);
