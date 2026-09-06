@@ -28,9 +28,10 @@ export const SOSModal: React.FC<SOSModalProps> = ({
   const [emergencyType, setEmergencyType] = useState<SOSDispatch['emergencyType']>('stampede_risk');
   const [notes, setNotes] = useState('');
   const [units, setUnits] = useState<string[]>([
-    'CRPF / PAC Temple Security Quick Response',
-    'Ayodhya Emergency Ambulance #03',
-    'Janmabhoomi Path Barrier Marshals',
+    'Gujarat Police / Somnath Trust Security Quick Response',
+    'Somnath Emergency Ambulance #02 (Veraval)',
+    'Digvijay Dwar Barrier Marshals',
+    'Prabhas Patan First Responder Unit',
   ]);
 
   if (!isOpen) return null;
@@ -52,9 +53,9 @@ export const SOSModal: React.FC<SOSModalProps> = ({
     dataIngestionService.triggerSOS(
       currentGate.id,
       emergencyType,
-      notes.trim() || 'Immediate tactical pilgrimage emergency response summoned from Ayodhya Central Command.',
+      notes.trim() || 'Immediate tactical pilgrimage emergency response summoned from Somnath Central Command.',
       units,
-      'Ayodhya Incident Commander'
+      'Somnath Incident Commander'
     );
 
     onClose();
@@ -152,7 +153,7 @@ export const SOSModal: React.FC<SOSModalProps> = ({
                 <strong style={{ color: density >= 85 ? '#ff2a5f' : '#f59e0b', fontSize: '0.85rem' }}>{density}% ({currentGate.maxSafeCapacity} max)</strong>
               </div>
               <div>
-                <span style={{ color: '#94a3b8', display: 'block' }}>Ayodhya GPS:</span>
+                <span style={{ color: '#94a3b8', display: 'block' }}>Somnath GPS:</span>
                 <strong style={{ color: '#fbbf24', fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>
                   {currentGate.location.gps ? `${currentGate.location.gps.lat}, ${currentGate.location.gps.lng}` : `X:${currentGate.location.x}% Y:${currentGate.location.y}%`}
                 </strong>
@@ -164,16 +165,16 @@ export const SOSModal: React.FC<SOSModalProps> = ({
         {/* Emergency Type Selector */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#cbd5e1', display: 'block', marginBottom: '8px' }}>
-            Emergency Classification (आपातकालीन प्रकार):
+            Emergency Classification (આપાતકાલીન વર્ગીકરણ):
           </label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
             {[
               { id: 'stampede_risk', label: '🚨 Stampede / Crowd Surge (भीड़ दबाव)' },
               { id: 'medical_critical', label: '🚑 Medical / Heatstroke (चिकित्सा सहायता)' },
-              { id: 'barricade_breach', label: '🚧 Barricade Breach (बैरिकेड अवरोध)' },
-              { id: 'lost_child', label: '👶 Lost Child / Elder (खोया-पाया सहायता)' },
-              { id: 'fire_smoke', label: '🚒 Fire / Deepotsav Hazard (अग्नि सुरक्षा)' },
-              { id: 'security_threat', label: '👮 Security Alert (सुरक्षा चेतावनी)' },
+              { id: 'barricade_breach', label: '🚧 Barricade Breach (બેરિકેડ અવરોધ)' },
+              { id: 'lost_child', label: '👶 Lost Child / Elder (ખોયા-પાયા સહાયતા)' },
+              { id: 'fire_smoke', label: '🚒 Fire / Hazard (અગ્નિ સુરક્ષા)' },
+              { id: 'security_threat', label: '👮 Security Alert (સુરક્ષા ચેતવણી)' },
             ].map((t) => (
               <button
                 key={t.id}
@@ -204,10 +205,10 @@ export const SOSModal: React.FC<SOSModalProps> = ({
           </label>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {[
-              'CRPF / PAC Temple Security Quick Response',
-              'Ayodhya Emergency Ambulance #03',
-              'Janmabhoomi Path Barrier Marshals',
-              'SDRF Saryu Water Patrol',
+              'Gujarat Police / Somnath Trust Security Quick Response',
+              'Somnath Emergency Ambulance #02 (Veraval)',
+              'Digvijay Dwar Barrier Marshals',
+              'Coast Guard Arabian Sea Marine Patrol',
               'Lost & Found Family Booth Marshals',
             ].map((u) => {
               const active = units.includes(u);
@@ -241,7 +242,7 @@ export const SOSModal: React.FC<SOSModalProps> = ({
           </label>
           <textarea
             rows={2}
-            placeholder="Situation details (e.g. Surge at Hanuman Garhi archway. Deploy PAC marshals and open Janmabhoomi bypass immediately)..."
+            placeholder="Situation details (e.g. Surge at Sea Walkway corridor. Deploy Gujarat Police marshals and open Sardar Patel Marg bypass immediately)..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             style={{
@@ -270,7 +271,7 @@ export const SOSModal: React.FC<SOSModalProps> = ({
             style={{ fontSize: '0.88rem', padding: '10px 24px' }}
           >
             <Flame size={18} />
-            CONFIRM AYODHYA SOS DISPATCH
+            CONFIRM SOMNATH SOS DISPATCH
           </button>
         </div>
       </div>

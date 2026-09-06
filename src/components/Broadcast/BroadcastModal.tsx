@@ -11,41 +11,41 @@ interface BroadcastModalProps {
   defaultGateId?: string | null;
 }
 
-const AYODHYA_BROADCAST_TEMPLATES = [
+const SOMNATH_BROADCAST_TEMPLATES = [
   {
     title: '🚩 Crowd diversion on Gate 2 -> Gate 3',
-    message: 'सभी भक्तों को ध्यान दें: गेट 2 पर अत्यधिक भीड़ है। सुगम और तेज़ दर्शन के लिए कृपया गेट 3, जन्मभूमि मार्ग की ओर प्रस्थान करें।',
-    messageEn: 'Attention all devotees: Gate 2 is experiencing heavy crowding. For smooth and faster darshan, please proceed towards Gate 3, Janmabhoomi Path.',
+    message: 'તમામ ભક્તો ધ્યાન આપે: ગેટ 2 (સમુદ્ર દર્શન પથ) પર વધુ ભીડ છે. સરળ દર્શન માટે કૃપા કરીને ગેટ 3 (સરદાર પટેલ માર્ગ) તરફ આગળ વધો।',
+    messageEn: 'Attention all devotees: Gate 2 (Sea Walkway) is experiencing heavy crowding. For smooth and fast darshan, please proceed towards Gate 3 (Sardar Patel Marg).',
     priority: 'urgent',
   },
   {
     title: '🚶‍♂️ Queue pace control',
-    message: 'सभी भक्तों से अनुरोध है कि कतार में आगे बढ़ते रहें और दर्शन पथ पर रुकें नहीं।',
-    messageEn: 'All devotees are kindly requested to keep moving forward in the queue and not stop on the darshan path.',
+    message: 'सभी भक्तों से अनुरोध है कि कतार में निरंतर आगे बढ़ते रहें और मुख्य दर्शन मार्ग पर रुकें नहीं।',
+    messageEn: 'All devotees are kindly requested to keep moving forward in the queue and not stop on the main darshan path.',
     priority: 'routine',
   },
   {
     title: '🧓 Senior and divyangjan priority lane',
-    message: 'वरिष्ठ नागरिकों और दिव्यांग भक्तों के लिए विशेष परिचारिक मार्ग तथा व्हीलचेयर सुविधा, धर्म मार्ग, गेट 5 पर उपलब्ध है।',
-    messageEn: 'Senior citizens and differently-abled devotees are requested to use the special accessible lane and wheelchair facility at Dharm Path, Gate 5.',
+    message: 'વરિષ્ઠ નાગરિકો અને દિવ્યાંગ ભક્તો માટે વિશેષ સુગમ માર્ગ અને વ્હીલચેર સુવિધા શિવ માર્ગ, ગેટ 5 પર ઉપલબ્ધ છે।',
+    messageEn: 'Senior citizens and differently-abled devotees are requested to use the special accessible lane and wheelchair facility at Shiv Marg, Gate 5.',
     priority: 'routine',
   },
   {
     title: '🚪 Post-Aarti exit guidance',
-    message: 'आरती दर्शन समाप्त हो चुका है। कृपया रामकोट उत्तर गेट, गेट 6 और सरयू मार्ग से निकास करें। प्रसाद काउंटर आगे उपलब्ध है।',
-    messageEn: 'Aarti darshan has concluded. Please use the Ramkot North Gate, Gate 6, and Saryu Marg for exit. Prasad counter is available ahead.',
+    message: 'આરતી દર્શન પૂર્ણ થયું છે. કૃપા કરીને દક્ષિણ નિકાસ ગેટ 6 તરફથી પ્રસ્થાન કરો. મહાપ્રસાદ ભવન આગળ ઉપલબ્ધ છે।',
+    messageEn: 'Aarti darshan has concluded. Please use South Exit Gate 6 for departure. Mahaprasad Bhavan is available ahead.',
     priority: 'routine',
   },
   {
     title: '🚨 Clear pathway for emergency teams',
-    message: 'तत्काल सूचना: कृपया चिकित्सा और सुरक्षा दलों के लिए केंद्रीय जन्मभूमि मार्ग को तुरंत साफ करें।',
-    messageEn: 'Urgent notice: Please immediately clear the central Janmabhoomi Path for medical and security teams.',
+    message: 'तत्काल सूचना: कृपया चिकित्सा और सुरक्षा दलों के लिए दिग्विजय द्वार मुख्य मार्ग को तुरंत साफ करें।',
+    messageEn: 'Urgent notice: Please immediately clear the Digvijay Dwar central corridor for medical and emergency response teams.',
     priority: 'emergency',
   },
   {
     title: '👶 Lost and found assistance',
-    message: 'यदि आप अपने परिवार से अलग हो गए हैं, तो कृपया Sugreev Kila पर स्थित केंद्रीय लॉट एंड फाउंड सहायता केंद्र से संपर्क करें।',
-    messageEn: 'If you have been separated from your family, please contact the central Lost and Found Help Centre located at Sugreev Kila.',
+    message: 'જો આપ આપના પરિવારથી અલગ થઈ ગયા હોવ, તો કૃપા કરીને સરદાર પટેલ ચોક સ્થિત સહાયતા કેન્દ્રનો સંપર્ક કરો।',
+    messageEn: 'If you have been separated from your family, please contact the central Help and Information Booth located at Sardar Patel Plaza.',
     priority: 'routine',
   },
 ];
@@ -58,8 +58,8 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
 }) => {
   const [targetGateId, setTargetGateId] = useState<string>(defaultGateId || 'all');
   const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');       // Hindi message shown to staff and signage
-  const [messageEn, setMessageEn] = useState('');   // English fallback for non-Hindi rendering
+  const [message, setMessage] = useState('');       // Gujarati/Hindi message shown to staff and signage
+  const [messageEn, setMessageEn] = useState('');   // English fallback for bilingual audio
   const [priority, setPriority] = useState<'routine' | 'urgent' | 'emergency'>('routine');
   const [channels, setChannels] = useState<('signage' | 'pa_audio' | 'ground_app' | 'sms')[]>([
     'signage',
@@ -77,7 +77,7 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
     }
   };
 
-  const handleApplyTemplate = (tmpl: typeof AYODHYA_BROADCAST_TEMPLATES[0]) => {
+  const handleApplyTemplate = (tmpl: typeof SOMNATH_BROADCAST_TEMPLATES[0]) => {
     setTitle(tmpl.title);
     setMessage(tmpl.message);
     setMessageEn((tmpl as any).messageEn || '');
@@ -100,16 +100,16 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
     if (channels.includes('pa_audio')) audioService.unlockFromUserGesture();
 
     const targetGate = targetGateId === 'all' ? null : gates.find((g) => g.id === targetGateId);
-    const targetName = targetGate ? targetGate.name : 'Ayodhya Complex Wide';
+    const targetName = targetGate ? targetGate.name : 'Somnath Complex Wide';
 
     dataIngestionService.sendBroadcast(
-      title.trim() || 'Ayodhya Pilgrimage Public Announcement',
+      title.trim() || 'Somnath Pilgrimage Public Announcement',
       hindiText || englishText,
       targetGateId,
       targetName,
       channels,
       priority,
-      'Ayodhya Control Room Dispatcher'
+      'Somnath Control Room Dispatcher'
     );
 
     onClose();
@@ -131,10 +131,10 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
             </div>
             <div>
               <h2 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f8fafc' }}>
-                Ayodhya Public Announcement Console
+                Somnath Public Announcement Console
               </h2>
               <p style={{ fontSize: '0.78rem', color: '#94a3b8' }}>
-                Dispatch audio announcements to all Ayodhya PA towers, digital signage and staff radios.
+                Dispatch audio announcements to all Somnath PA towers, digital signage and staff radios.
               </p>
             </div>
           </div>
@@ -147,10 +147,10 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
         {/* Templates */}
         <div style={{ marginBottom: '16px' }}>
           <label style={{ fontSize: '0.78rem', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '6px' }}>
-            🚩 Ayodhya Pilgrimage Quick Templates:
+            🚩 Somnath Pilgrimage Quick Templates:
           </label>
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            {AYODHYA_BROADCAST_TEMPLATES.map((tmpl, idx) => (
+            {SOMNATH_BROADCAST_TEMPLATES.map((tmpl, idx) => (
               <button
                 key={idx}
                 type="button"
@@ -192,7 +192,7 @@ export const BroadcastModal: React.FC<BroadcastModalProps> = ({
               outline: 'none',
             }}
           >
-            <option value="all">📢 All Ayodhya Mandir Corridors & Public Signage (समस्त परिसर)</option>
+            <option value="all">📢 All Somnath Mandir Corridors & Public Signage (સમસ્ત પરિસર)</option>
             {gates.map((g) => (
               <option key={g.id} value={g.id}>
                 📍 {g.name} ({g.code}) — {g.zone}

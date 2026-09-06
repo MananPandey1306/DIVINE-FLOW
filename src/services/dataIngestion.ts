@@ -116,7 +116,7 @@ export class DataIngestionService {
     const found = VENUE_PRESETS.find((p) => p.id === presetId);
     if (found) {
       this.setVenue(found);
-      this.logIncident('CONFIG_CHANGE', 'low', `Loaded pilgrimage preset: ${found.name}`, undefined, 'Ayodhya Control Room');
+      this.logIncident('CONFIG_CHANGE', 'low', `Loaded pilgrimage preset: ${found.name}`, undefined, 'Somnath Shrine Command');
     }
   }
 
@@ -187,24 +187,24 @@ export class DataIngestionService {
         this.venue.environment.weather = 'rain';
         this.venue.environment.temperatureC = 22;
         this.venue.gates.forEach((g) => {
-          if (g.name.includes('Janmabhoomi') || g.name.includes('Rampath')) {
+          if (g.name.includes('Digvijay') || g.name.includes('Samudra')) {
             g.currentCount = Math.round(g.maxSafeCapacity * (0.88 + Math.random() * 0.1));
             g.inflowRate = 420;
           }
         });
-        this.logIncident('ALERT', 'high', 'Monsoon Downpour Surge on Janmabhoomi Path & Shaded Canopies', undefined, 'Ayodhya Met Dept');
+        this.logIncident('ALERT', 'high', 'Monsoon Coastal Surge on Digvijay Dwar & Sea Walkway Canopies', undefined, 'Somnath Met Dept');
         audioService.playUrgentAlert();
         break;
 
       case 'aarti_rush':
         this.venue.environment.eventPhase = 'active_event';
         this.venue.gates.forEach((g) => {
-          if (g.name.includes('Bhakti') || g.name.includes('Rampath')) {
+          if (g.name.includes('Digvijay') || g.name.includes('Sardar')) {
             g.currentCount = Math.round(g.maxSafeCapacity * 0.92);
             g.inflowRate = 480;
           }
         });
-        this.logIncident('ALERT', 'high', 'Sandhya Aarti Darshan Ingress Surge: High Pilgrim Flow at Garbhagriha Approaches', undefined, 'Temple Command Center');
+        this.logIncident('ALERT', 'high', 'Sandhya Aarti Darshan Ingress Surge: High Pilgrim Flow at Someshwar Garbhagriha Approaches', undefined, 'Somnath Command Center');
         audioService.playUrgentAlert();
         break;
 
@@ -215,17 +215,17 @@ export class DataIngestionService {
           g.currentCount = Math.round(g.maxSafeCapacity * (0.85 + Math.random() * 0.15));
           g.inflowRate = 560;
         });
-        this.logIncident('ALERT', 'critical', 'Deepotsav Saryu Ghats & Ram Ki Paidi Mega Influx (2.5M Devotees)', undefined, 'District Administration Ayodhya');
+        this.logIncident('ALERT', 'critical', 'Maha Shivratri Triveni Sangam & Sea Walkway Mega Influx (1.2M Devotees)', undefined, 'Somnath Trust & Gujarat Police');
         audioService.playSosAlarm();
         break;
 
       case 'chokepoint_rush':
         if (this.venue.gates.length > 1) {
-          const targetGate = this.venue.gates[1]; // Bhakti Path Gate 2
+          const targetGate = this.venue.gates[1]; // Samudra Darshan Gate 2
           targetGate.currentCount = Math.round(targetGate.maxSafeCapacity * 1.06);
           targetGate.inflowRate = 580;
           targetGate.demographics.elderlyRatio = 0.52;
-          this.logIncident('ALERT', 'critical', `STAMPEDE RISK: Severe Chokepoint Surge at ${targetGate.name} (Hanuman Garhi Connector)`, targetGate.id, 'Risk Engine');
+          this.logIncident('ALERT', 'critical', `STAMPEDE RISK: Severe Chokepoint Surge at ${targetGate.name} (Sea Walkway Corridor)`, targetGate.id, 'Risk Engine');
           audioService.playSosAlarm();
         }
         break;
@@ -240,7 +240,7 @@ export class DataIngestionService {
           g.inflowRate = Math.round(120 + Math.random() * 90);
           g.outflowRate = Math.round(100 + Math.random() * 80);
         });
-        this.logIncident('CONFIG_CHANGE', 'low', 'Reset scenario to Normal Daily Darshan Operations', undefined, 'Ayodhya Control Room');
+        this.logIncident('CONFIG_CHANGE', 'low', 'Reset scenario to Normal Daily Darshan Operations', undefined, 'Somnath Control Room');
         break;
     }
 
@@ -258,7 +258,7 @@ export class DataIngestionService {
     this.venue.gates.forEach((gate) => {
       if (gate.sensorStatus === 'online' && now - gate.lastHeartbeat > 45000) {
         gate.sensorStatus = 'degraded';
-        this.reportSystemError(gate.id, gate.name, 'Laser Counter', 'warning', 'HEARTBEAT_DELAY', 'Ayodhya Pilgrimage sensor heartbeat delayed.');
+        this.reportSystemError(gate.id, gate.name, 'Laser Counter', 'warning', 'HEARTBEAT_DELAY', 'Somnath Pilgrimage sensor heartbeat delayed.');
       }
 
       if (gate.sensorStatus === 'offline') {
@@ -385,7 +385,7 @@ export class DataIngestionService {
     this.venue.gates.forEach((g) => this.recomputeGateMetrics(g));
   }
 
-  public acknowledgeAlert(alertId: string, officerName = 'Ayodhya Control Officer') {
+  public acknowledgeAlert(alertId: string, officerName = 'Somnath Control Officer') {
     const alert = this.alerts.find((a) => a.id === alertId);
     if (alert) {
       alert.acknowledged = true;
@@ -397,7 +397,7 @@ export class DataIngestionService {
     }
   }
 
-  public resolveAlert(alertId: string, officerName = 'Ayodhya Duty Commander') {
+  public resolveAlert(alertId: string, officerName = 'Somnath Duty Commander') {
     const alert = this.alerts.find((a) => a.id === alertId);
     if (alert) {
       alert.status = 'resolved';
@@ -463,7 +463,7 @@ export class DataIngestionService {
       suggestion.autoApproved = isAuto;
 
       const broadcastTitle = `Pilgrim Diversion: ${suggestion.sourceGateName} -> ${suggestion.targetGateName}`;
-      const broadcastText = `जय श्री राम! ध्यान दें: ${suggestion.sourceGateName} पर अत्यधिक भीड़ है। सुगम दर्शन हेतु कृपया ${suggestion.targetGateName} की ओर प्रस्थान करें (${suggestion.distanceMeters} मीटर, ~${suggestion.estimatedWalkingMinutes} मिनट)।`;
+      const broadcastText = `जय सोमनाथ! ધ્યાન આપો: ${suggestion.sourceGateName} પર વધુ ભીડ છે. સરળ દર્શન માટે કૃપા કરીને ${suggestion.targetGateName} તરફ પ્રસ્થાન કરો (${suggestion.distanceMeters} મીટર, ~${suggestion.estimatedWalkingMinutes} મિનિટ).`;
       
       this.sendBroadcast(
         broadcastTitle,
@@ -472,7 +472,7 @@ export class DataIngestionService {
         suggestion.sourceGateName,
         ['signage', 'pa_audio', 'ground_app'],
         'urgent',
-        isAuto ? 'Ayodhya Autopilot AI' : 'Shri Ram Janmabhoomi Control Room'
+        isAuto ? 'Somnath Autopilot AI' : 'Shri Somnath Trust Control Room'
       );
 
       this.logIncident(
@@ -480,7 +480,7 @@ export class DataIngestionService {
         'high',
         `Pilgrim Redirection Activated: ${suggestion.sourceGateName} to ${suggestion.targetGateName} (Delta -${suggestion.densityDelta}%)`,
         suggestion.sourceGateId,
-        isAuto ? 'Ayodhya Redirection Engine' : 'Admin Approval'
+        isAuto ? 'Somnath Redirection Engine' : 'Admin Approval'
       );
 
       this.notify();
@@ -532,7 +532,7 @@ export class DataIngestionService {
     emergencyType: SOSDispatch['emergencyType'],
     notes: string,
     unitsDispatched: string[],
-    caller = 'Ayodhya Control Room Commander'
+    caller = 'Somnath Shrine Command'
   ) {
     const gate = this.venue.gates.find((g) => g.id === gateId);
     if (!gate) return;
@@ -556,7 +556,7 @@ export class DataIngestionService {
     };
 
     this.sosDispatches.unshift(sos);
-    this.logIncident('SOS', 'critical', `AYODHYA EMERGENCY SOS: ${emergencyType.toUpperCase()} at ${gate.name}. Units: ${unitsDispatched.join(', ')}`, gate.id, caller);
+    this.logIncident('SOS', 'critical', `SOMNATH EMERGENCY SOS: ${emergencyType.toUpperCase()} at ${gate.name}. Units: ${unitsDispatched.join(', ')}`, gate.id, caller);
     
     audioService.playSosAlarm();
     this.notify();

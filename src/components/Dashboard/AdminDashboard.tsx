@@ -100,9 +100,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   ];
 
   const suggestionChips = [
-    '⚡ Reroute Rampath Surge to Sugreev Kila',
-    '📢 Broadcast crowd update in Hindi & Awadhi',
-    '🚨 Check Gate G-01 Ingress Bottleneck',
+    '⚡ Reroute Digvijay Dwar Surge to Sardar Patel Marg',
+    '📢 Broadcast crowd update in Gujarati & Hindi',
+    '🚨 Check Gate G-02 Samudra Darshan Bottleneck',
     '🤖 Auto-balance safe gate capacity',
   ];
 
@@ -140,7 +140,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </h1>
 
         <p className="hero-subtitle">
-          Real-time spatial computer vision, predictive stampede prevention, and multi-lingual voice broadcast orchestration across Ayodhya Dham.
+          Real-time spatial computer vision, predictive stampede prevention, and multi-lingual voice broadcast orchestration across Shri Somnath Teerth Kshetra.
         </p>
 
         {/* Pill Prompt Bar */}

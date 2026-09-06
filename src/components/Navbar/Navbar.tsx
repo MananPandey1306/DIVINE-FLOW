@@ -108,7 +108,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 fontWeight: 700,
                 fontFamily: 'var(--font-mono)',
               }}>
-                AYODHYA DHAM
+                SOMNATH TEERTH
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '3px' }}>

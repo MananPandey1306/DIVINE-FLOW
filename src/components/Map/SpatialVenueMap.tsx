@@ -150,19 +150,24 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
         ctx.stroke();
       }
 
-      // Saryu River Flow Graphic on top-right
-      ctx.fillStyle = 'rgba(14, 165, 233, 0.12)';
+      // Arabian Sea Coastal Flow Graphic on top-right
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.14)';
       ctx.beginPath();
-      ctx.moveTo(width * 0.7, 0);
-      ctx.bezierCurveTo(width * 0.75, height * 0.2, width * 0.9, height * 0.4, width, height * 0.45);
+      ctx.moveTo(width * 0.65, 0);
+      ctx.bezierCurveTo(width * 0.72, height * 0.22, width * 0.88, height * 0.42, width, height * 0.48);
       ctx.lineTo(width, 0);
       ctx.closePath();
       ctx.fill();
-      ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.7)';
       ctx.font = 'bold 9px var(--font-mono)';
-      ctx.fillText('🌊 SARAYU RIVER (सरयू नदी तट)', width * 0.85, 20);
+      ctx.fillText('🌊 ARABIAN SEA (अरब सागर - प्रभास पाटन)', width * 0.82, 20);
 
-      // 3. Ram Janmabhoomi 70-Acre Perimeter Boundary
+      // Baan Stambh (Arrow Pillar) Marker
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
+      ctx.font = 'bold 8px var(--font-mono)';
+      ctx.fillText('📍 बाण स्तंभ (BAAN STAMBH)', width * 0.85, 36);
+
+      // 3. Shree Somnath 30-Acre Perimeter Boundary
       ctx.strokeStyle = 'rgba(245, 158, 11, 0.45)';
       ctx.lineWidth = 2;
       ctx.shadowColor = 'rgba(245, 158, 11, 0.4)';
@@ -172,7 +177,7 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Central Garbhagriha & Mahamandapa Sanctum
+      // Central Garbhagriha & Someshwar Sanctum
       const hubRadius = Math.min(width, height) * 0.16;
       const hubGrad = ctx.createRadialGradient(centerX, centerY, 10, centerX, centerY, hubRadius);
       hubGrad.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
@@ -193,7 +198,7 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
 
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 10px var(--font-display)';
-      ctx.fillText('SHRI RAM LALLA DARSHAN', centerX, centerY + 10);
+      ctx.fillText('SHREE SOMNATH JYOTIRLINGA', centerX, centerY + 10);
 
       // Walkway Corridors connecting Gates to Garbhagriha
       gates.forEach((gate) => {
