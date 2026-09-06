@@ -503,11 +503,11 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
               width={1280}
               height={720}
               style={{
-                display: selectedMedia.length > 0 && selectedMedia.some((item) => item.type === 'video') ? 'block' : 'none'
+                display: Boolean(scanMode) || (selectedMedia.length > 0 && selectedMedia.some((item) => item.type === 'video')) ? 'block' : 'none'
               }}
             />
 
-            {!selectedMedia.length && (
+            {!scanMode && !selectedMedia.length && (
               <div className="stage-empty">
                 <FileVideo size={32} />
                 <strong>Upload camera / image files for {selectedGate?.code ?? 'this gate'}</strong>
@@ -515,7 +515,7 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
               </div>
             )}
 
-            {selectedMedia.length > 0 && !selectedMedia.some((item) => item.type === 'video') && (
+            {!scanMode && selectedMedia.length > 0 && !selectedMedia.some((item) => item.type === 'video') && (
               <div className="stage-empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', flexDirection: 'column' }}>
                 <FileImage size={32} />
                 <strong>Image uploaded</strong>

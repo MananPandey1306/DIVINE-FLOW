@@ -299,10 +299,23 @@ export class VisionDetector {
     this.canvasElement = canvas;
     this.mode = "webcam";
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode },
-        audio: false,
-      });
+      video.muted = true;
+      video.playsInline = true;
+      video.autoplay = true;
+
+      let stream: MediaStream | null = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } },
+          audio: false,
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false,
+        });
+      }
+
       video.srcObject = stream;
       await video.play();
       canvas.width = video.videoWidth || 1280;
