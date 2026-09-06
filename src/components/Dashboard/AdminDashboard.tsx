@@ -99,12 +99,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     },
   ];
 
-  const suggestionChips = [
-    '⚡ Reroute Digvijay Dwar Surge to Sardar Patel Marg',
-    '📢 Broadcast crowd update in Gujarati & Hindi',
-    '🚨 Check Gate G-02 Samudra Darshan Bottleneck',
-    '🤖 Auto-balance safe gate capacity',
-  ];
+  const isAyodhya = venue.id.includes('ayodhya') || venue.id.includes('ram');
+
+  const suggestionChips = isAyodhya
+    ? [
+        '⚡ Reroute Janmabhoomi Path to Sugriva Fort',
+        '📢 Broadcast darshan queue advisory',
+        '🚨 Monitor Ram Path Bottleneck',
+        '🤖 Auto-balance safe gate capacity',
+      ]
+    : [
+        '⚡ Reroute Digvijay Dwar to Sardar Patel Marg',
+        '📢 Broadcast darshan queue advisory',
+        '🚨 Monitor Samudra Darshan Bottleneck',
+        '🤖 Auto-balance safe gate capacity',
+      ];
 
   const handleChipClick = (chip: string) => {
     setPromptQuery(chip);
@@ -140,7 +149,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </h1>
 
         <p className="hero-subtitle">
-          Real-time spatial computer vision, predictive stampede prevention, and multi-lingual voice broadcast orchestration across Shri Somnath Teerth Kshetra.
+          Real-time crowd intelligence, spatial load balancing, and autonomous shrine safety.
         </p>
 
         {/* Pill Prompt Bar */}
