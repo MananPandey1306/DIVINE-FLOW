@@ -31,25 +31,25 @@ export function evaluateRedirectionPlan(
   const now = Date.now();
   const suggestions: RedirectionSuggestion[] = [];
 
-  // Filter gates needing relief (HIGH, CRITICAL, or STAMPEDE_HAZARD risk, or density >= 75%)
+  // Filter gates needing relief (MODERATE, HIGH, CRITICAL, or STAMPEDE_HAZARD risk, or density >= 60%)
   const congestedGates = gates.filter((g) => {
     const risk = riskAssessments.get(g.id);
     const density = (g.currentCount / Math.max(1, g.maxSafeCapacity)) * 100;
     return (
       g.sensorStatus === 'online' &&
       measuredGateIds.has(g.id) &&
-      ((risk && (risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'STAMPEDE_HAZARD' || risk.riskLevel === 'HIGH')) ||
-        density >= 75)
+      ((risk && (risk.riskLevel === 'CRITICAL' || risk.riskLevel === 'STAMPEDE_HAZARD' || risk.riskLevel === 'HIGH' || risk.riskLevel === 'MODERATE')) ||
+        density >= 60)
     );
   });
 
   for (const sourceGate of congestedGates) {
     const sourceDensity = Math.round((sourceGate.currentCount / sourceGate.maxSafeCapacity) * 100);
 
-    // Find compatible candidate gates:
+    // Find compatible candidate gates with available capacity:
     // 1. Same compatible type (if source is 'entry', candidate must be 'entry' or 'both')
     // 2. Sensor is online
-    // 3. Density is substantially lower (at least 18% lower) and under 68% capacity
+    // 3. Density is lower (at least 8% lower) and under 80% capacity
     const candidateGates = gates.filter((candidate) => {
       if (candidate.id === sourceGate.id) return false;
       if (candidate.sensorStatus !== 'online') return false;
@@ -63,39 +63,39 @@ export function evaluateRedirectionPlan(
       const candidateRisk = riskAssessments.get(candidate.id);
       const availableCapacity = candidate.maxSafeCapacity - candidate.currentCount;
 
-      // Allow a nearby alternative gate when it is comparatively free, even if it cannot absorb the full overflow instantly.
-      // This keeps Gate 4 / other underused diversion paths visible in the route plan instead of excluding them too aggressively.
-      const minimumAbsorptionCapacity = Math.max(1000, sourceGate.currentCount * 0.7);
-      const isCandidateSafe = availableCapacity >= minimumAbsorptionCapacity && candidateDensity < 72 && (!candidateRisk || candidateRisk.riskLevel === 'NORMAL' || candidateRisk.riskLevel === 'MODERATE');
-      const hasSignificantDelta = (sourceDensity - candidateDensity) >= 12;
+      const isCandidateSafe = availableCapacity > 200 && candidateDensity < 80 && (!candidateRisk || candidateRisk.riskLevel !== 'CRITICAL' && candidateRisk.riskLevel !== 'STAMPEDE_HAZARD');
+      const hasSignificantDelta = (sourceDensity - candidateDensity) >= 8;
 
       return isCandidateSafe && hasSignificantDelta;
     });
 
     if (candidateGates.length === 0) continue;
 
-    // Choose the nearest gate that can absorb the current source crowd.
+    // Score and rank candidates primarily by capacity availability (highest availability first) and shortest walk distance
     const scoredCandidates = candidateGates.map((target) => {
       const targetDensity = Math.round((target.currentCount / target.maxSafeCapacity) * 100);
+      const availablePercentage = Math.max(0, 100 - targetDensity);
+      const availableCapacity = Math.max(0, target.maxSafeCapacity - target.currentCount);
       const distanceMeters = calculateDistanceMeters(sourceGate, target);
       const walkingMinutes = Math.max(1, Math.round(distanceMeters / 75)); // 75m per min average crowd walk speed
       
-      // Higher score is better: heavily penalize high density, moderately penalize far distance
-      const capacityAvailability = 100 - targetDensity;
-      const distancePenalty = distanceMeters * 2;
-      const chokepointPenalty = target.isChokepoint ? 30 : 0;
-      const suitabilityScore = capacityAvailability * 0.25 - distancePenalty - chokepointPenalty;
+      // Availability is primary factor, distance penalty is secondary
+      const chokepointPenalty = target.isChokepoint ? 25 : 0;
+      const suitabilityScore = (availablePercentage * 2) + (availableCapacity / 500) - (distanceMeters * 0.15) - chokepointPenalty;
 
       return {
         target,
         targetDensity,
+        availablePercentage,
+        availableCapacity,
         distanceMeters,
         walkingMinutes,
         suitabilityScore,
       };
     });
 
-    scoredCandidates.sort((a, b) => a.distanceMeters - b.distanceMeters || b.suitabilityScore - a.suitabilityScore);
+    // Sort by availability & suitability score descending
+    scoredCandidates.sort((a, b) => b.suitabilityScore - a.suitabilityScore || b.availablePercentage - a.availablePercentage || a.distanceMeters - b.distanceMeters);
     const bestCandidate = scoredCandidates[0];
 
     // Hysteresis & Anti-Ping-Pong verification
@@ -104,24 +104,25 @@ export function evaluateRedirectionPlan(
     let selectedTargetDensity = bestCandidate.targetDensity;
     let selectedDistance = bestCandidate.distanceMeters;
     let selectedWalkMinutes = bestCandidate.walkingMinutes;
+    let selectedAvailablePercentage = bestCandidate.availablePercentage;
+    let selectedAvailableCapacity = bestCandidate.availableCapacity;
 
     if (tracker) {
       const elapsedSec = (now - tracker.lastSwitchTimestamp) / 1000;
-      // If we recently recommended a target and the timer hasn't expired, stay with previous target if it is still acceptable
       if (elapsedSec < tracker.stabilityHoldSeconds && tracker.lastTargetGateId !== bestCandidate.target.id) {
         const previousTarget = gates.find((g) => g.id === tracker.lastTargetGateId);
         if (previousTarget) {
           const prevDensity = Math.round((previousTarget.currentCount / previousTarget.maxSafeCapacity) * 100);
-          if (prevDensity < 70 && (sourceDensity - prevDensity) >= 12) {
-            // Keep the previous recommendation for stability
+          if (prevDensity < 78 && (sourceDensity - prevDensity) >= 8) {
             selectedTarget = previousTarget;
             selectedTargetDensity = prevDensity;
+            selectedAvailablePercentage = 100 - prevDensity;
+            selectedAvailableCapacity = Math.max(0, previousTarget.maxSafeCapacity - previousTarget.currentCount);
             selectedDistance = calculateDistanceMeters(sourceGate, previousTarget);
             selectedWalkMinutes = Math.max(1, Math.round(selectedDistance / 75));
           }
         }
       } else if (tracker.lastTargetGateId !== bestCandidate.target.id) {
-        // Switch to new target and reset hysteresis timer
         hysteresisState[sourceGate.id] = {
           lastTargetGateId: bestCandidate.target.id,
           lastSwitchTimestamp: now,
@@ -156,13 +157,13 @@ export function evaluateRedirectionPlan(
       densityDelta,
       distanceMeters: selectedDistance,
       estimatedWalkingMinutes: selectedWalkMinutes,
-      recommendedRoute: `Follow blue overhead signage toward ${selectedTarget.name} (${selectedDistance}m, ~${selectedWalkMinutes} min).`,
+      recommendedRoute: `Flow: Divert from ${sourceGate.code} to ${selectedTarget.code} (${selectedAvailablePercentage}% Available, +${selectedAvailableCapacity.toLocaleString()} cap, ${selectedDistance}m walk).`,
       stabilityHoldSecRemaining: remainingHold,
       status: existing ? existing.status : 'suggested',
       autoApproved: existing ? existing.autoApproved : false,
     });
 
-    // Show secondary diversion options, so operators can see other viable routes for the same overcrowded gate.
+    // Secondary diversion options (e.g. Gate 1 to Gate 3, Gate 1 to Gate 4) in order of availability
     const alternateCandidates = scoredCandidates.slice(1, 4);
     alternateCandidates.forEach((candidate, index) => {
       const alternateExisting = existingSuggestions.find(
@@ -181,7 +182,7 @@ export function evaluateRedirectionPlan(
         densityDelta: altDensityDelta,
         distanceMeters: candidate.distanceMeters,
         estimatedWalkingMinutes: candidate.walkingMinutes,
-        recommendedRoute: `Alternate route: ${candidate.target.name} (${candidate.distanceMeters}m, ~${candidate.walkingMinutes} min).`,
+        recommendedRoute: `Flow Option: ${sourceGate.code} ➔ ${candidate.target.code} (${candidate.availablePercentage}% Available, +${candidate.availableCapacity.toLocaleString()} cap, ${candidate.distanceMeters}m walk).`,
         stabilityHoldSecRemaining: remainingHold,
         status: alternateExisting ? alternateExisting.status : 'suggested',
         autoApproved: alternateExisting ? alternateExisting.autoApproved : false,

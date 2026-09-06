@@ -253,7 +253,7 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
         ctx.setLineDash([]);
       });
 
-      // 4. Draw Redirection Active Vectors (Animated neon arcs between gates)
+      // 4. Draw Redirection Active Vectors (Animated neon arcs showing flow from Gate A to Gate B as per availability)
       redirections.forEach((redir) => {
         if (redir.status === 'suggested' || redir.status === 'approved' || redir.status === 'active') {
           const sourceGate = gates.find((g) => g.id === redir.sourceGateId);
@@ -264,15 +264,21 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
             const tx = (targetGate.location.x / 100) * width;
             const ty = (targetGate.location.y / 100) * height;
 
-            const midX = (sx + tx) / 2 + (sy - ty) * 0.25;
-            const midY = (sy + ty) / 2 + (tx - sx) * 0.25;
+            const midX = (sx + tx) / 2 + (sy - ty) * 0.28;
+            const midY = (sy + ty) / 2 + (tx - sx) * 0.28;
 
-            const isAlternate = redir.recommendedRoute.startsWith('Alternate route:');
-            ctx.strokeStyle = isAlternate ? '#67e8f9' : '#fbbf24';
-            ctx.lineWidth = isAlternate ? 2.2 : 3;
-            ctx.setLineDash(isAlternate ? [10, 8] : []);
-            ctx.shadowColor = isAlternate ? 'rgba(103, 232, 249, 0.85)' : 'rgba(251, 191, 36, 0.9)';
-            ctx.shadowBlur = 10;
+            const targetDensity = Math.round((targetGate.currentCount / Math.max(1, targetGate.maxSafeCapacity)) * 100);
+            const targetAvailability = Math.max(0, 100 - targetDensity);
+            const isAlternate = redir.recommendedRoute.includes('Option:') || redir.recommendedRoute.startsWith('Alternate route:');
+            
+            const strokeColor = isAlternate ? '#38bdf8' : '#34d399';
+            const shadowGlow = isAlternate ? 'rgba(56, 189, 248, 0.85)' : 'rgba(52, 211, 153, 0.9)';
+
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = isAlternate ? 2.5 : 3.2;
+            ctx.setLineDash(isAlternate ? [8, 6] : []);
+            ctx.shadowColor = shadowGlow;
+            ctx.shadowBlur = 12;
             ctx.beginPath();
             ctx.moveTo(sx, sy);
             ctx.quadraticCurveTo(midX, midY, tx, ty);
@@ -280,21 +286,36 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
             ctx.setLineDash([]);
             ctx.shadowBlur = 0;
 
-            const t = ((animationTimeRef.current * 0.6) % 1);
+            // Animated directional pulse moving from source to target
+            const t = ((animationTimeRef.current * 0.7) % 1);
             const ax = (1 - t) * (1 - t) * sx + 2 * (1 - t) * t * midX + t * t * tx;
             const ay = (1 - t) * (1 - t) * sy + 2 * (1 - t) * t * midY + t * t * ty;
 
             ctx.fillStyle = '#ffffff';
-            ctx.shadowColor = isAlternate ? '#67e8f9' : '#fbbf24';
-            ctx.shadowBlur = 10;
+            ctx.shadowColor = strokeColor;
+            ctx.shadowBlur = 12;
             ctx.beginPath();
-            ctx.arc(ax, ay, 4.4, 0, Math.PI * 2);
+            ctx.arc(ax, ay, 5, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.fillStyle = isAlternate ? '#67e8f9' : '#fbbf24';
-            ctx.font = 'bold 10px var(--font-sans)';
-            ctx.fillText(`${isAlternate ? 'ALTERNATE PATH' : 'PILGRIM DIVERSION'} ➔ ${targetGate.code}`, midX, midY - (isAlternate ? 16 : 10));
+            // Floating Route Tag Pill
+            const labelText = `FLOW: ${sourceGate.code} ➔ ${targetGate.code} (${targetAvailability}% Available)`;
+            ctx.font = 'bold 9.5px var(--font-mono)';
+            const textWidth = ctx.measureText(labelText).width;
+            
+            ctx.fillStyle = 'rgba(7, 13, 29, 0.92)';
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.roundRect(midX - (textWidth / 2) - 8, midY - 14, textWidth + 16, 20, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = strokeColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labelText, midX, midY - 4);
           }
         }
       });
@@ -447,18 +468,28 @@ export const SpatialVenueMap: React.FC<SpatialVenueMapProps> = ({
         ctx.textBaseline = 'middle';
         ctx.fillText(gate.code, gx, gy);
 
-        const labelY = gy + 30;
-        ctx.fillStyle = 'rgba(10, 17, 36, 0.9)';
-        ctx.strokeStyle = isSelected ? '#fbbf24' : 'rgba(255, 255, 255, 0.15)';
-        ctx.lineWidth = 1;
+        const labelY = gy + 32;
+        const availablePct = Math.max(0, 100 - density);
+        const redirFromThis = redirections.find((r) => r.sourceGateId === gate.id && r.status !== 'dismissed');
+        const redirToThis = redirections.find((r) => r.targetGateId === gate.id && r.status !== 'dismissed');
+
+        ctx.fillStyle = 'rgba(7, 13, 29, 0.94)';
+        ctx.strokeStyle = isSelected ? '#fbbf24' : redirFromThis ? '#ff2a5f' : redirToThis ? '#34d399' : 'rgba(255, 255, 255, 0.18)';
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
-        ctx.roundRect(gx - 56, labelY - 11, 112, 22, 6);
+        ctx.roundRect(gx - 62, labelY - 12, 124, 24, 6);
         ctx.fill();
         ctx.stroke();
 
         ctx.fillStyle = nodeColor;
-        ctx.font = 'bold 10px var(--font-sans)';
-        ctx.fillText(`${density}% • ${gate.currentCount}`, gx, labelY);
+        ctx.font = 'bold 9.5px var(--font-mono)';
+        const targetG = redirFromThis ? gates.find((g) => g.id === redirFromThis.targetGateId) : null;
+        const statusText = redirFromThis
+          ? `🔴 Flow➔${targetG ? targetG.code : 'Divert'}`
+          : redirToThis
+          ? `🟢 +${availablePct}% Avail`
+          : `${density}% (${availablePct}% Free)`;
+        ctx.fillText(statusText, gx, labelY);
 
         if (gate.isChokepoint) {
           ctx.fillStyle = '#ff2a5f';

@@ -36,8 +36,8 @@ export const RedirectionPanel: React.FC<RedirectionPanelProps> = ({ suggestions,
             <Compass size={15} />
           </div>
           <div>
-            <div className="panel-title">Crowd Redirection</div>
-            <div className="panel-sub">Anti-hysteresis load balancer</div>
+            <div className="panel-title">Crowd Redirection & Flow Matrix</div>
+            <div className="panel-sub">Live gate-to-gate diversion as per availability</div>
           </div>
         </div>
 
@@ -64,7 +64,7 @@ export const RedirectionPanel: React.FC<RedirectionPanelProps> = ({ suggestions,
         {activeSuggestions.length === 0 ? (
           <div style={{ padding: '28px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
             <Compass size={26} color="var(--cyan)" style={{ margin: '0 auto 8px', display: 'block', opacity: 0.6 }} />
-            Gate densities are well-distributed. No diversions needed.
+            Gate densities are well-distributed. All gates operating with normal ingress.
           </div>
         ) : (
           activeSuggestions.map((sugg) => (
@@ -84,15 +84,15 @@ export const RedirectionPanel: React.FC<RedirectionPanelProps> = ({ suggestions,
                     background: 'var(--red-light)', border: '1px solid rgba(239,68,68,0.2)',
                     padding: '2px 7px', borderRadius: '5px',
                   }}>
-                    {sugg.sourceGateName} {sugg.sourceDensity}%
+                    FLOW: {sugg.sourceGateName} ({sugg.sourceDensity}% FULL)
                   </span>
-                  <ArrowRight size={12} color="var(--text-muted)" />
+                  <ArrowRight size={12} color="var(--cyan)" />
                   <span style={{
                     fontSize: '11px', fontWeight: 700, color: 'var(--green)',
                     background: 'var(--green-light)', border: '1px solid rgba(16,185,129,0.2)',
                     padding: '2px 7px', borderRadius: '5px',
                   }}>
-                    {sugg.targetGateName} {sugg.targetDensity}%
+                    {sugg.targetGateName} ({100 - sugg.targetDensity}% AVAILABLE)
                   </span>
                 </div>
                 <span style={{
@@ -100,15 +100,14 @@ export const RedirectionPanel: React.FC<RedirectionPanelProps> = ({ suggestions,
                   background: 'var(--cyan-light)', border: '1px solid rgba(34,211,238,0.2)',
                   padding: '2px 7px', borderRadius: '5px',
                 }}>
-                  −{sugg.densityDelta}% load
+                  +{100 - sugg.targetDensity}% Avail
                 </span>
               </div>
 
               {/* Metrics row */}
-              <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                <span>{sugg.distanceMeters}m walk</span>
-                <span>~{sugg.estimatedWalkingMinutes} min</span>
-                <span style={{ color: 'var(--cyan)' }}>{sugg.recommendedRoute}</span>
+              <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px', flexWrap: 'wrap' }}>
+                <span>🚶 {sugg.distanceMeters}m walk (~{sugg.estimatedWalkingMinutes} min)</span>
+                <span style={{ color: 'var(--cyan)', fontWeight: 600 }}>{sugg.recommendedRoute}</span>
               </div>
 
               {/* Hold timer + live status */}

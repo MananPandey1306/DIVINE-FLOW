@@ -140,58 +140,81 @@ export const PublicSignageView: React.FC<PublicSignageViewProps> = ({
         </div>
       )}
 
-      {/* Prominent Active Redirection Divert Banner */}
-      {activeRedirection && (
+      {/* Prominent Active Redirection & Flow Load Balancer Banner */}
+      {redirections.filter((r) => r.status !== 'dismissed').length > 0 && (
         <div style={{
           background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(99, 102, 241, 0.12))',
           border: '2px solid #fbbf24',
           borderRadius: '18px',
           padding: '22px 28px',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '18px',
+          flexDirection: 'column',
+          gap: '14px',
           boxShadow: '0 0 35px rgba(245, 158, 11, 0.35)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#030712',
-              padding: '12px',
-              borderRadius: '14px',
-              boxShadow: '0 0 20px rgba(245, 158, 11, 0.6)',
-            }}>
-              <Compass size={32} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#030712',
+                padding: '12px',
+                borderRadius: '14px',
+                boxShadow: '0 0 20px rgba(245, 158, 11, 0.6)',
+              }}>
+                <Compass size={32} />
+              </div>
+              <div>
+                <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  सुगम दर्शन डायवर्जन प्रवाह (DYNAMIC CROWD FLOW ROUTING)
+                </span>
+                <h2 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#f8fafc', marginTop: '2px', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>
+                  उपलब्धता अनुसार गेट प्रवाह निर्देशित (Crowd Flow Directed As Per Availability)
+                </h2>
+              </div>
             </div>
-            <div>
-              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                सुगम दर्शन डायवर्जन (FAST-TRACK ROUTE)
-              </span>
-              <h2 style={{ fontSize: '1.45rem', fontWeight: 900, color: '#f8fafc', marginTop: '2px', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>
-                {activeRedirection.sourceGateName} पर अधिक भीड़ है। सुगम दर्शन हेतु {activeRedirection.targetGateName} की ओर बढ़ें।
-              </h2>
-              <p style={{ fontSize: '0.9rem', color: '#cbd5e1', marginTop: '6px' }}>
-                {activeRedirection.recommendedRoute}
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span style={{
               background: '#10b981',
               color: '#ffffff',
-              padding: '10px 20px',
-              borderRadius: '12px',
-              fontWeight: 900,
-              fontSize: '1.05rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)',
+              padding: '6px 14px',
+              borderRadius: '9999px',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              letterSpacing: '0.04em',
             }}>
-              <Clock size={18} /> ~{activeRedirection.estimatedWalkingMinutes} मिनट पैदल मार्ग
+              🟢 LIVE LOAD BALANCED
             </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginTop: '6px' }}>
+            {redirections.filter((r) => r.status !== 'dismissed').map((r) => (
+              <div
+                key={r.id}
+                style={{
+                  background: 'rgba(7, 13, 29, 0.9)',
+                  border: '1px solid rgba(52, 211, 153, 0.4)',
+                  borderRadius: '12px',
+                  padding: '10px 16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flex: '1 1 300px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ background: '#ef4444', color: '#ffffff', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.82rem' }}>
+                    {r.sourceGateName}
+                  </span>
+                  <ArrowRight size={16} color="#34d399" />
+                  <span style={{ background: '#10b981', color: '#ffffff', padding: '2px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '0.82rem' }}>
+                    {r.targetGateName}
+                  </span>
+                </div>
+                <div style={{ marginLeft: 'auto', textAlign: 'right', fontSize: '0.8rem' }}>
+                  <strong style={{ color: '#34d399' }}>{100 - r.targetDensity}% उपलब्ध</strong>
+                  <span style={{ color: '#94a3b8', display: 'block', fontSize: '0.72rem' }}>~{r.estimatedWalkingMinutes} min (~{r.distanceMeters}m)</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
