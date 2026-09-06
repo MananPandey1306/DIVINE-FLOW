@@ -72,19 +72,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* ── Logo + Brand ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{
-            width: 38,
-            height: 38,
-            background: 'linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)',
+            width: 42,
+            height: 42,
+            background: '#ffffff',
             borderRadius: '12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '19px',
             flexShrink: 0,
-            boxShadow: '0 4px 14px rgba(109, 40, 217, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4)',
-            border: '1px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 4px 14px rgba(109, 40, 217, 0.16)',
+            border: '1px solid rgba(124, 58, 237, 0.25)',
+            padding: '3px 5px',
+            overflow: 'hidden',
           }}>
-            🏹
+            <img src="/logo.png" alt="Divine Flow Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -95,7 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 color: 'var(--text-primary)',
                 letterSpacing: '-0.02em',
               }}>
-                श्री राम <span style={{ color: '#6d28d9' }}>AI Command</span>
+                DIVINE FLOW <span style={{ color: '#6d28d9' }}>AI Command</span>
               </span>
               <span style={{
                 fontSize: '10px',
