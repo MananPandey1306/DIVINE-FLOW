@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ShieldAlert,
-  Radio,
-  Tv,
-  Camera,
-  Settings,
-  Volume2,
-  VolumeX,
   Bell,
-  Flame,
+  Maximize2,
+  Globe,
+  Grid,
+  Moon,
   ChevronDown,
 } from 'lucide-react';
 import { VenueConfig, RiskLevel } from '../../types';
 import { audioService } from '../../services/audioSynthesizer';
-import { dataIngestionService } from '../../services/dataIngestion';
 
 interface NavbarProps {
   currentTab: 'command_center' | 'public_signage' | 'vision_feed';
@@ -29,15 +24,15 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  currentTab,
-  setCurrentTab,
+  currentTab: _currentTab,
+  setCurrentTab: _setCurrentTab,
   venue,
   activeAlertCount,
   highestRisk: _highestRisk,
   onOpenSetup,
   onOpenDetectionApi: _onOpenDetectionApi,
-  onOpenBroadcast,
-  onOpenSOS,
+  onOpenBroadcast: _onOpenBroadcast,
+  onOpenSOS: _onOpenSOS,
   onOpenIncidentLog,
 }) => {
   const [timeStr, setTimeStr] = useState('');
@@ -64,274 +59,155 @@ export const Navbar: React.FC<NavbarProps> = ({
     audioService.setSoundEnabled(next);
   };
 
-  const tabs = [
-    { id: 'command_center' as const, icon: ShieldAlert, label: 'Command Center' },
-    { id: 'public_signage' as const, icon: Tv,           label: 'Pilgrim Signage' },
-    { id: 'vision_feed'   as const, icon: Camera,        label: 'AI Vision CCTV' },
-  ];
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   return (
-    <header className="app-header">
-      <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: '16px' }}>
+    <header
+      style={{
+        height: 56,
+        background: '#ffffff',
+        borderBottom: '1px solid #e2e8f0',
+        padding: '0 24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: '14px',
+        fontFamily: "'Times New Roman', Times, serif",
+        position: 'sticky',
+        top: 0,
+        zIndex: 90,
+      }}
+    >
+      {/* ── Live Date-Time Capsule ── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '5px 14px',
+          borderRadius: '9999px',
+          background: '#f1f5f9',
+          border: '1px solid #e2e8f0',
+          fontSize: '12px',
+          color: '#334155',
+        }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#00b894' }} />
+        <strong style={{ color: '#0f172a', fontWeight: 700 }}>{timeStr}</strong>
+        <span style={{ color: '#cbd5e1' }}>·</span>
+        <span style={{ color: '#64748b' }}>{dateStr}</span>
+      </div>
 
-        {/* ── Brand Logo & Title ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          <div style={{
-            width: 34,
-            height: 34,
-            background: '#ffffff',
-            borderRadius: '9px',
+      {/* ── Notification Bell with active dot ── */}
+      <button
+        onClick={onOpenIncidentLog}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '5px',
+          background: 'transparent',
+          border: 'none',
+          color: '#475569',
+          cursor: 'pointer',
+          padding: '6px 8px',
+          borderRadius: '8px',
+          fontSize: '12.5px',
+          fontWeight: 600,
+          position: 'relative',
+        }}
+        title="Notifications & Incident Logs"
+      >
+        <Bell size={15} />
+        <span>Notification</span>
+        <span
+          style={{
+            width: 7,
+            height: 7,
+            borderRadius: '50%',
+            backgroundColor: '#00b894',
+            display: 'inline-block',
+          }}
+        />
+      </button>
+
+      {/* ── Action Icons (Fullscreen, Globe, Grid, Theme) ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748b' }}>
+        <button
+          onClick={handleToggleFullscreen}
+          style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
+          title="Toggle Fullscreen"
+        >
+          <Maximize2 size={14} />
+        </button>
+
+        <button
+          onClick={() => {}}
+          style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
+          title="Language / Locale"
+        >
+          <Globe size={14} />
+        </button>
+
+        <button
+          onClick={onOpenSetup}
+          style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
+          title="App Grid & Modules"
+        >
+          <Grid size={14} />
+        </button>
+
+        <button
+          onClick={toggleSound}
+          style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
+          title={soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
+        >
+          <Moon size={14} />
+        </button>
+      </div>
+
+      {/* ── Commander Profile Chip ── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '9px',
+          paddingLeft: '10px',
+          borderLeft: '1px solid #e2e8f0',
+          cursor: 'pointer',
+        }}
+        onClick={onOpenSetup}
+      >
+        <div
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: '50%',
+            background: '#00b894',
+            color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            flexShrink: 0,
-            boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-            border: '1px solid rgba(0,0,0,0.08)',
-            padding: '2px',
-            overflow: 'hidden',
-          }}>
-            <img src="/logo.png" alt="Divine Flow" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '5px' }}>
-            <span style={{
-              fontFamily: 'var(--font-display)',
-              fontSize: '15px',
-              fontWeight: 800,
-              color: 'var(--text-primary)',
-              letterSpacing: '-0.02em',
-            }}>
-              DivineFlow
-            </span>
-            <span style={{
-              fontSize: '13px',
-              fontWeight: 600,
-              color: '#0d9488',
-            }}>
-              Admin
-            </span>
-          </div>
-
-          {/* Minimal Shrine Switcher */}
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            background: 'rgba(0,0,0,0.04)',
-            padding: '2px',
-            borderRadius: '9999px',
-            border: '1px solid rgba(0,0,0,0.06)',
-            marginLeft: '6px',
-          }}>
-            <button
-              type="button"
-              onClick={() => dataIngestionService.loadPreset('somnath-jyotirlinga-mandir')}
-              style={{
-                padding: '2px 8px',
-                fontSize: '10.5px',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                border: 'none',
-                cursor: 'pointer',
-                background: !isAyodhya ? '#0d9488' : 'transparent',
-                color: !isAyodhya ? '#ffffff' : '#64748b',
-                fontFamily: 'var(--font-mono)',
-                transition: 'all 0.15s ease',
-              }}
-              title="Shri Somnath Jyotirlinga Mandir"
-            >
-              🔱 SOMNATH
-            </button>
-            <button
-              type="button"
-              onClick={() => dataIngestionService.loadPreset('ram-janmabhoomi-ayodhya')}
-              style={{
-                padding: '2px 8px',
-                fontSize: '10.5px',
-                fontWeight: 700,
-                borderRadius: '9999px',
-                border: 'none',
-                cursor: 'pointer',
-                background: isAyodhya ? '#0d9488' : 'transparent',
-                color: isAyodhya ? '#ffffff' : '#64748b',
-                fontFamily: 'var(--font-mono)',
-                transition: 'all 0.15s ease',
-              }}
-              title="Shri Ram Janmabhoomi Mandir, Ayodhya"
-            >
-              🚩 AYODHYA
-            </button>
-          </div>
-        </div>
-
-        {/* ── Spacer ── */}
-        <div style={{ flex: 1 }} />
-
-        {/* ── Nav Dock Segmented Tabs ── */}
-        <nav className="dock-segment-container">
-          {tabs.map(({ id, icon: Icon, label }) => {
-            const active = currentTab === id;
-            return (
-              <button
-                key={id}
-                onClick={() => setCurrentTab(id)}
-                className={`dock-segment-btn ${active ? 'active' : ''}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  position: 'relative',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                }}
-              >
-                <Icon size={14} />
-                {label}
-                {id === 'command_center' && activeAlertCount > 0 && (
-                  <span style={{
-                    background: 'var(--red)',
-                    color: '#fff',
-                    fontSize: '9.5px',
-                    padding: '0 5px',
-                    height: '16px',
-                    borderRadius: '9999px',
-                    fontWeight: 800,
-                    display: 'flex',
-                    alignItems: 'center',
-                    boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)',
-                    minWidth: '16px',
-                    justifyContent: 'center',
-                  }}>
-                    {activeAlertCount}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        {/* ── Spacer ── */}
-        <div style={{ flex: 1 }} />
-
-        {/* ── Right Controls & Live Time ── */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-          {/* Live Date-Time Capsule */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '5px 14px',
-            borderRadius: '9999px',
-            background: 'rgba(0, 0, 0, 0.03)',
-            border: '1px solid rgba(0, 0, 0, 0.06)',
-            fontSize: '11.5px',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-secondary)',
-          }}>
-            <span className="radar-dot" style={{ width: 6, height: 6, backgroundColor: '#0d9488' }} />
-            <strong style={{ color: 'var(--text-primary)' }}>{timeStr}</strong>
-            <span style={{ color: 'var(--text-faint)' }}>·</span>
-            <span style={{ color: 'var(--text-muted)' }}>{dateStr}</span>
-          </div>
-
-          {/* Notifications Icon Button */}
-          <button
-            onClick={onOpenIncidentLog}
-            className="btn btn-secondary"
-            title="Active Notifications & Incident Logs"
-            style={{ padding: '6px 9px', minHeight: 32, borderRadius: '8px', position: 'relative' }}
-          >
-            <Bell size={14} />
-            {activeAlertCount > 0 && (
-              <span style={{
-                position: 'absolute',
-                top: 4,
-                right: 4,
-                width: 6,
-                height: 6,
-                borderRadius: '50%',
-                backgroundColor: '#0d9488',
-              }} />
-            )}
-          </button>
-
-          {/* Audio Mute/Unmute */}
-          <button
-            onClick={toggleSound}
-            className="btn btn-secondary"
-            title={soundEnabled ? 'Mute audio' : 'Enable audio'}
-            style={{ padding: '6px 9px', minHeight: 32, borderRadius: '8px' }}
-          >
-            {soundEnabled ? <Volume2 size={14} /> : <VolumeX size={14} style={{ color: 'var(--text-muted)' }} />}
-          </button>
-
-          {/* PA Broadcast Button */}
-          <button
-            onClick={onOpenBroadcast}
-            className="btn btn-secondary"
-            title="Public Address Broadcast"
-            style={{ fontSize: '11.5px', padding: '5px 11px', minHeight: 32, borderRadius: '8px', gap: '5px' }}
-          >
-            <Radio size={13} />
-            Broadcast
-          </button>
-
-          {/* Settings */}
-          <button
-            onClick={onOpenSetup}
-            className="btn btn-secondary"
-            title="Venue Setup & Gates"
-            style={{ padding: '6px 9px', minHeight: 32, borderRadius: '8px' }}
-          >
-            <Settings size={14} />
-          </button>
-
-          {/* SOS Trigger Button */}
-          <button
-            onClick={onOpenSOS}
-            className="btn btn-sos"
-            style={{ fontSize: '11px', padding: '5px 12px', minHeight: 32, borderRadius: '8px', letterSpacing: '0.04em' }}
-          >
-            <Flame size={13} />
-            SOS
-          </button>
-
-          {/* Commander Profile Chip */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            paddingLeft: '6px',
-            borderLeft: '1px solid var(--border)',
-            cursor: 'pointer',
+            fontSize: '11px',
+            fontWeight: 800,
           }}
-          onClick={onOpenSetup}
-          >
-            <div style={{
-              width: 28,
-              height: 28,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #0d9488, #059669)',
-              color: '#ffffff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '10px',
-              fontWeight: 800,
-              boxShadow: '0 2px 6px rgba(13, 148, 136, 0.25)',
-            }}>
-              AD
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.1 }}>
-                Admin Commander
-              </span>
-              <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>
-                {isAyodhya ? 'Ayodhya ICCC' : 'Somnath ICCC'}
-              </span>
-            </div>
-            <ChevronDown size={12} color="var(--text-muted)" />
-          </div>
+        >
+          AD
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+            Admin Commander
+          </span>
+          <span style={{ fontSize: '10px', color: '#64748b' }}>
+            {isAyodhya ? 'Ayodhya ICCC' : 'Somnath ICCC'}
+          </span>
+        </div>
+        <ChevronDown size={13} color="#64748b" />
       </div>
     </header>
   );

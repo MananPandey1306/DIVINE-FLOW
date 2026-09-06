@@ -12,7 +12,22 @@ import { GateGrid } from '../GateMatrix/GateGrid';
 import { AlertCenter } from '../Alerts/AlertCenter';
 import { RedirectionPanel } from '../Redirection/RedirectionPanel';
 import { SystemErrorFeed } from '../SystemErrors/SystemErrorFeed';
-import { Users, Activity, AlertTriangle, Compass, Sparkles, ArrowRight, Shield, Zap } from 'lucide-react';
+import { dataIngestionService } from '../../services/dataIngestion';
+import {
+  Users,
+  Clock,
+  DoorOpen,
+  HeartPulse,
+  ShieldAlert,
+  Activity,
+  Zap,
+  AlertTriangle,
+  Calendar,
+  Mail,
+  Download,
+  Printer,
+  Share2,
+} from 'lucide-react';
 
 interface AdminDashboardProps {
   venue: VenueConfig;
@@ -36,7 +51,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onOpenBroadcastForGate,
 }) => {
   const [selectedGateId, setSelectedGateId] = useState<string | null>(null);
-  const [promptQuery, setPromptQuery] = useState('');
+  const [isSurgeSimulated, setIsSurgeSimulated] = useState(false);
+
+  const isAyodhya = venue.id.includes('ayodhya') || venue.id.includes('ram');
 
   // KPI Calculations
   const totalHeadcount = venue.gates.reduce((sum, g) => sum + g.currentCount, 0);
@@ -48,308 +65,473 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return r && (r.riskLevel === 'CRITICAL' || r.riskLevel === 'STAMPEDE_HAZARD' || r.riskLevel === 'HIGH');
   }).length;
 
-  const activeAlertsCount = alerts.filter((a) => a.status === 'active' || a.status === 'escalated').length;
-  const activeRedirectionsCount = redirections.filter((r) => r.status === 'active' || r.status === 'suggested').length;
-
-  const densityColor = overallDensity >= 80 ? 'var(--red)' : overallDensity >= 60 ? 'var(--yellow)' : 'var(--green)';
-  const densityLabel = overallDensity >= 80 ? 'SURGE HAZARD' : overallDensity >= 60 ? 'STEADY' : 'OPTIMAL';
-
-  const kpis = [
-    {
-      label: 'LIVE FOOTFALL',
-      value: totalHeadcount.toLocaleString(),
-      sub: `/ ${totalMaxCapacity.toLocaleString()} safe cap`,
-      meta: '⚡ Multi-gate ingestion active',
-      metaColor: '#c084fc',
-      icon: Users,
-      iconBg: 'rgba(124, 58, 237, 0.2)',
-      iconColor: '#c084fc',
-    },
-    {
-      label: 'AGGREGATE DENSITY',
-      value: `${overallDensity}%`,
-      sub: densityLabel,
-      meta: venue.environment.weather === 'rain' ? '🌧️ Wet surface factor +14%' : '☀️ Weather nominal',
-      metaColor: 'var(--text-muted)',
-      icon: Activity,
-      iconBg: overallDensity >= 80 ? 'var(--red-light)' : 'var(--green-light)',
-      iconColor: densityColor,
-      valueColor: densityColor,
-    },
-    {
-      label: 'HIGH RISK ZONES',
-      value: `${highRiskGatesCount}`,
-      sub: `/ ${venue.gates.length} gates`,
-      meta: highRiskGatesCount > 0 ? '⚠️ Barrier marshals alerted' : '✓ Standard safety protocol',
-      metaColor: highRiskGatesCount > 0 ? 'var(--red)' : 'var(--green)',
-      icon: AlertTriangle,
-      iconBg: highRiskGatesCount > 0 ? 'var(--red-light)' : 'var(--green-light)',
-      iconColor: highRiskGatesCount > 0 ? 'var(--red)' : 'var(--green)',
-      valueColor: highRiskGatesCount > 0 ? 'var(--red)' : 'var(--green)',
-    },
-    {
-      label: 'CROWD DIVERSIONS',
-      value: `${activeRedirectionsCount}`,
-      sub: venue.autoRedirectionEnabled ? 'AI Autopilot ON' : 'Manual mode',
-      meta: `${venue.hysteresisSeconds}s anti-thrash buffer`,
-      metaColor: 'var(--text-muted)',
-      icon: Compass,
-      iconBg: 'rgba(56, 189, 248, 0.16)',
-      iconColor: 'var(--cyan)',
-    },
-  ];
-
-  const isAyodhya = venue.id.includes('ayodhya') || venue.id.includes('ram');
-
-  const suggestionChips = isAyodhya
-    ? [
-        '⚡ Reroute Janmabhoomi Path to Sugriva Fort',
-        '📢 Broadcast darshan queue advisory',
-        '🚨 Monitor Ram Path Bottleneck',
-        '🤖 Auto-balance safe gate capacity',
-      ]
-    : [
-        '⚡ Reroute Digvijay Dwar to Sardar Patel Marg',
-        '📢 Broadcast darshan queue advisory',
-        '🚨 Monitor Samudra Darshan Bottleneck',
-        '🤖 Auto-balance safe gate capacity',
-      ];
-
-  const handleChipClick = (chip: string) => {
-    setPromptQuery(chip);
+  const handleSimulateSurge = () => {
+    const next = !isSurgeSimulated;
+    setIsSurgeSimulated(next);
+    if (venue.gates[0]) {
+      dataIngestionService.adjustGateCount(venue.gates[0].id, next ? 1800 : -1800);
+    }
   };
 
   return (
     <div
-      className="dashboard-page"
-      style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}
+      style={{
+        padding: '24px 28px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px',
+        fontFamily: "'Times New Roman', Times, serif",
+        background: '#f4f6f9',
+        minHeight: 'calc(100vh - 56px)',
+      }}
     >
-      {/* ── Hostinger AI-Style Hero Section ── */}
-      <section style={{ textAlign: 'center', padding: '16px 0 8px' }}>
-        <div style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '7px',
-          padding: '4px 14px',
-          borderRadius: '9999px',
-          background: 'rgba(124, 58, 237, 0.18)',
-          border: '1px solid rgba(168, 85, 247, 0.35)',
-          color: '#e9d5ff',
-          fontSize: '12px',
-          fontWeight: 700,
-          marginBottom: '14px',
-        }}>
-          <Sparkles size={13} color="#c084fc" />
-          Autonomous Crowd Safety Intelligence
-        </div>
+      {/* ── Breadcrumbs ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b' }}>
+        <span style={{ color: '#00b894', cursor: 'pointer' }}>Home</span>
+        <span>/</span>
+        <span style={{ color: '#00b894', cursor: 'pointer' }}>Dashboard</span>
+        <span>/</span>
+        <span style={{ color: '#475569', fontWeight: 600 }}>My Dashboard</span>
+      </div>
 
-        <h1 className="hero-headline">
-          Your pilgrims, protected.<br />
-          <span className="hero-headline-gradient">Divine Flow AI handles the rest.</span>
-        </h1>
-
-        <p className="hero-subtitle">
-          Real-time crowd intelligence, spatial load balancing, and autonomous shrine safety.
-        </p>
-
-        {/* Pill Prompt Bar */}
-        <div className="pill-search-container">
-          <input
-            type="text"
-            className="pill-search-input"
-            value={promptQuery}
-            onChange={(e) => setPromptQuery(e.target.value)}
-            placeholder="Ask AI Command: e.g. Reroute Gate 2 surge or broadcast safety notice..."
-          />
-          <button
-            type="button"
-            className="pill-search-btn"
-            onClick={() => {
-              if (promptQuery.toLowerCase().includes('broadcast')) {
-                onOpenBroadcastForGate(venue.gates[0]?.id || 'g-01');
-              } else if (promptQuery.toLowerCase().includes('reroute') || promptQuery.toLowerCase().includes('surge')) {
-                setSelectedGateId('g-01');
-              }
-            }}
-          >
-            <ArrowRight size={16} />
-          </button>
-        </div>
-
-        {/* Suggestion Chips */}
-        <div className="pill-chips-group">
-          {suggestionChips.map((chip) => (
-            <button
-              key={chip}
-              type="button"
-              className="pill-chip"
-              onClick={() => handleChipClick(chip)}
-            >
-              {chip}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Purple Highlight Banner Card (Hostinger style) ── */}
-      <div className="purple-banner-card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-        <div style={{ maxWidth: '650px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <span style={{ background: 'rgba(255, 255, 255, 0.22)', padding: '2px 8px', borderRadius: '9999px', fontSize: '11px', fontWeight: 800, letterSpacing: '0.04em' }}>
-              AUTONOMOUS AGENT ACTIVE
-            </span>
-            <span style={{ fontSize: '12px', opacity: 0.9 }}>
-              100% Neural Processing Active
-            </span>
-          </div>
-          <h3 style={{ fontSize: '18px', fontWeight: 800, margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-            Multi-Tier Vision: BlazeFace + COCO-SSD + YOLOv8 Ensemble
-          </h3>
-          <p style={{ fontSize: '13px', opacity: 0.88, margin: 0, lineHeight: 1.5 }}>
-            Automated head counting, density gradient mapping, and micro-movement vector tracking running at sub-50ms latency.
+      {/* ── Welcome Header & Action Buttons ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+            Welcome back, Commander!
+          </h1>
+          <p style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+            You have {alerts.length} new telemetry alerts and 4 active field marshals online.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Date Range Selector Pill */}
           <button
-            onClick={() => onOpenBroadcastForGate(venue.gates[0]?.id || 'g-01')}
-            className="btn btn-white"
-            style={{ padding: '8px 18px', fontSize: '13px' }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '7px 14px',
+              borderRadius: '8px',
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              color: '#334155',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+            }}
           >
-            Deploy AI Broadcast
+            <Calendar size={14} color="#64748b" />
+            <span>12/08/2026 - 12/08/2026</span>
+          </button>
+
+          {/* Action Toolbar Button Group */}
+          <div
+            style={{
+              display: 'flex',
+              background: '#1e293b',
+              borderRadius: '8px',
+              overflow: 'hidden',
+            }}
+          >
+            <button style={{ background: 'transparent', border: 'none', color: '#ffffff', padding: '8px 12px', cursor: 'pointer' }} title="Email Report">
+              <Mail size={13} />
+            </button>
+            <button style={{ background: 'transparent', border: 'none', color: '#ffffff', padding: '8px 12px', cursor: 'pointer', borderLeft: '1px solid #334155' }} title="Download Data">
+              <Download size={13} />
+            </button>
+            <button style={{ background: 'transparent', border: 'none', color: '#ffffff', padding: '8px 12px', cursor: 'pointer', borderLeft: '1px solid #334155' }} title="Print Summary">
+              <Printer size={13} />
+            </button>
+            <button style={{ background: 'transparent', border: 'none', color: '#ffffff', padding: '8px 12px', cursor: 'pointer', borderLeft: '1px solid #334155' }} title="Share Link">
+              <Share2 size={13} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── ICCC Simulation Engine Status Bar ── */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          padding: '12px 20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '14px',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '8px',
+              background: 'rgba(0, 184, 148, 0.12)',
+              color: '#00b894',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Zap size={18} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                ICCC Simulation Engine
+              </span>
+              <span style={{ fontSize: '10px', background: '#f1f5f9', color: '#64748b', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                Live State
+              </span>
+            </div>
+            <p style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+              All temple corridors & gates operating within safe parameters
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(0, 184, 148, 0.08)',
+              border: '1px solid #00b894',
+              color: '#00b894',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              letterSpacing: '0.03em',
+            }}
+          >
+            <Activity size={13} />
+            NORMAL OPERATIONS
+          </button>
+
+          <button
+            onClick={handleSimulateSurge}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: isSurgeSimulated ? '#ef4444' : '#ffffff',
+              border: '1px solid #ef4444',
+              color: isSurgeSimulated ? '#ffffff' : '#ef4444',
+              padding: '6px 14px',
+              borderRadius: '8px',
+              fontSize: '11.5px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <AlertTriangle size={13} />
+            {isSurgeSimulated ? 'SURGE SIMULATED' : 'Simulate Crowd Surge'}
           </button>
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-        gap: '16px',
-      }}>
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <div key={kpi.label} className="kpi-card">
-              {/* Top row */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                  fontFamily: 'var(--font-mono)',
-                }}>
-                  {kpi.label}
-                </span>
-                <div style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: '10px',
-                  background: kpi.iconBg,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: kpi.iconColor,
-                }}>
-                  <Icon size={16} />
-                </div>
-              </div>
-
-              {/* Value */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                <span style={{
-                  fontSize: '32px',
-                  fontWeight: 800,
-                  fontFamily: 'var(--font-display)',
-                  letterSpacing: '-0.03em',
-                  color: kpi.valueColor || 'var(--text-primary)',
-                  lineHeight: 1,
-                }}>
-                  {kpi.value}
-                </span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  {kpi.sub}
-                </span>
-              </div>
-
-              {/* Progress bar (density only) */}
-              {kpi.label === 'AGGREGATE DENSITY' && (
-                <div style={{
-                  marginTop: '12px',
-                  height: '6px',
-                  borderRadius: '9999px',
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  overflow: 'hidden',
-                }}>
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${overallDensity}%`,
-                      background: overallDensity >= 80
-                        ? 'linear-gradient(90deg, var(--orange), var(--red))'
-                        : overallDensity >= 60
-                        ? 'linear-gradient(90deg, var(--yellow), var(--orange))'
-                        : 'linear-gradient(90deg, #7c3aed, var(--green))',
-                      borderRadius: '9999px',
-                      transition: 'width 0.4s ease',
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Meta */}
-              <div style={{ fontSize: '11px', color: kpi.metaColor, fontWeight: 600, marginTop: '10px' }}>
-                {kpi.meta}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ── Main Operations Grid ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0, 1fr) 420px',
-        gap: '20px',
-      }}>
-        {/* Left: Map + Gate Matrix */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', minWidth: 0 }}>
-          <SpatialVenueMap
-            gates={venue.gates}
-            riskAssessments={riskAssessments}
-            redirections={redirections}
-            selectedGateId={selectedGateId}
-            onSelectGate={setSelectedGateId}
-            onOpenSOSForGate={onOpenSOSForGate}
-          />
-
-          <GateGrid
-            gates={venue.gates}
-            riskAssessments={riskAssessments}
-            selectedGateId={selectedGateId}
-            onSelectGate={setSelectedGateId}
-            onOpenSOS={onOpenSOSForGate}
-            onOpenBroadcast={onOpenBroadcastForGate}
-          />
+      {/* ── 6 KPI Metric Cards Grid with Colored Bottom Borders ── */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '14px',
+        }}
+      >
+        {/* 1. Current Visitors (Orange bottom border) */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            borderBottom: '3px solid #f97316',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              CURRENT VISITORS
+            </span>
+            <Users size={15} color="#94a3b8" />
+          </div>
+          <div style={{ margin: '10px 0 6px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              {totalHeadcount.toLocaleString()}
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              +1.2k in last hr
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+            Active pilgrims on cam...
+          </span>
         </div>
 
-        {/* Right: Feeds */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <AlertCenter
-            alerts={alerts}
-            onOpenSOSForGate={onOpenSOSForGate}
-          />
+        {/* 2. Avg Wait Time (Yellow/Gold bottom border) */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            borderBottom: '3px solid #f59e0b',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              AVG WAIT TIME
+            </span>
+            <Clock size={15} color="#94a3b8" />
+          </div>
+          <div style={{ margin: '10px 0 6px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              16 min
+            </span>
+            <span style={{ fontSize: '11px', color: '#ef4444', fontWeight: 700 }}>
+              ↓ -4 min from peak
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+            Average queue wait ac...
+          </span>
+        </div>
 
+        {/* 3. Active Gates (Blue bottom border) */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            borderBottom: '3px solid #0ea5e9',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              ACTIVE GATES
+            </span>
+            <DoorOpen size={15} color="#94a3b8" />
+          </div>
+          <div style={{ margin: '10px 0 6px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              {venue.gates.length}
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              5%
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+            Operational entry/exit g...
+          </span>
+        </div>
+
+        {/* 4. Medical Alerts (Red bottom border) */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            borderBottom: '3px solid #ef4444',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              MEDICAL ALERTS
+            </span>
+            <HeartPulse size={15} color="#94a3b8" />
+          </div>
+          <div style={{ margin: '10px 0 6px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a' }}>
+              {alerts.filter((a) => a.severity === 'EMERGENCY' || a.severity === 'CRITICAL').length || 2}
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              5%
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+            Active medical incidents
+          </span>
+        </div>
+
+        {/* 5. Risk Level (Orange bottom border) */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            borderBottom: '3px solid #f97316',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              RISK LEVEL
+            </span>
+            <ShieldAlert size={15} color="#94a3b8" />
+          </div>
+          <div style={{ margin: '10px 0 6px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: highRiskGatesCount > 0 ? '#ef4444' : '#0f172a' }}>
+              {highRiskGatesCount > 0 ? 'High' : overallDensity >= 60 ? 'Moderate' : 'Normal'}
+            </span>
+            <span style={{ fontSize: '11px', color: '#64748b' }}>
+              5%
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+            Current overall campus...
+          </span>
+        </div>
+
+        {/* 6. System Health (Teal bottom border) */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0',
+            borderBottom: '3px solid #00b894',
+            padding: '14px 16px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+              SYSTEM HEALTH
+            </span>
+            <Activity size={15} color="#94a3b8" />
+          </div>
+          <div style={{ margin: '10px 0 6px', display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+            <span style={{ fontSize: '22px', fontWeight: 800, color: '#00b894' }}>
+              Operational
+            </span>
+          </div>
+          <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+            All subsystems nominal
+          </span>
+        </div>
+      </div>
+
+      {/* ── Section Title: Campus Operational Telemetry ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '6px' }}>
+        <div style={{ width: 4, height: 18, background: '#00b894', borderRadius: '2px' }} />
+        <h2 style={{ fontSize: '13.5px', fontWeight: 800, color: '#334155', letterSpacing: '0.04em', textTransform: 'uppercase', margin: 0 }}>
+          CAMPUS OPERATIONAL TELEMETRY
+        </h2>
+      </div>
+
+      {/* ── Operational Map / Spatial Radar Card ── */}
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          overflow: 'hidden',
+          boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+        }}
+      >
+        <div
+          style={{
+            padding: '14px 20px',
+            borderBottom: '1px solid #f1f5f9',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+          }}
+        >
+          <div>
+            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+              {isAyodhya ? 'Ram Mandir Operational Campus Map' : 'Somnath Operational Campus Map'}
+            </h3>
+            <p style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2px', margin: 0 }}>
+              Click a marker to inspect live capacity, wait estimates and cordon routes
+            </p>
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '11.5px', color: '#64748b' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#0ea5e9' }} /> Low
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#f59e0b' }} /> Moderate
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#f97316' }} /> High
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#ef4444' }} /> Critical
+            </span>
+          </div>
+        </div>
+
+        {/* Spatial Radar Map Embedded */}
+        <SpatialVenueMap
+          gates={venue.gates}
+          riskAssessments={riskAssessments}
+          redirections={redirections}
+          selectedGateId={selectedGateId}
+          onSelectGate={setSelectedGateId}
+          onOpenSOSForGate={onOpenSOSForGate}
+        />
+      </div>
+
+      {/* ── Lower Panels: Gate Queues Grid & Redirections Load Balancer ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '18px' }}>
+        <GateGrid
+          gates={venue.gates}
+          riskAssessments={riskAssessments}
+          selectedGateId={selectedGateId}
+          onSelectGate={setSelectedGateId}
+          onOpenSOS={onOpenSOSForGate}
+          onOpenBroadcast={onOpenBroadcastForGate}
+        />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <RedirectionPanel
             suggestions={redirections}
             venue={venue}
           />
-
-          <SystemErrorFeed
-            systemErrors={systemErrors}
+          <AlertCenter
+            alerts={alerts}
+            onOpenSOSForGate={onOpenSOSForGate}
           />
+          <SystemErrorFeed systemErrors={systemErrors} />
         </div>
       </div>
     </div>

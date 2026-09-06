@@ -22,6 +22,8 @@ import { VenueSetupModal } from './components/Onboarding/VenueSetupModal';
 import { DetectionApiModal } from './components/Settings/DetectionApiModal';
 import { visionDetector } from './services/visionDetector';
 
+import { Sidebar } from './components/Sidebar/Sidebar';
+
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<'command_center' | 'public_signage' | 'vision_feed'>('command_center');
   const [visionMedia, setVisionMedia] = useState<Record<string, VisionMediaItem[]>>({});
@@ -81,16 +83,13 @@ export const App: React.FC = () => {
   });
 
   return (
-    <div className="app-container">
-      {/* Primary Header & Scenario Bar */}
-      <Navbar
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f4f6f9', fontFamily: "'Times New Roman', Times, serif" }}>
+      {/* ── Left Navigation Sidebar ── */}
+      <Sidebar
         currentTab={currentTab}
         setCurrentTab={setCurrentTab}
         venue={venue}
-        activeAlertCount={activeAlerts.length}
-        highestRisk={highestRisk}
         onOpenSetup={() => setIsSetupOpen(true)}
-        onOpenDetectionApi={() => setIsDetectionApiOpen(true)}
         onOpenBroadcast={() => {
           setTargetedGateId(null);
           setIsBroadcastOpen(true);
@@ -102,40 +101,63 @@ export const App: React.FC = () => {
         onOpenIncidentLog={() => setIsIncidentLogOpen(true)}
       />
 
-      {/* Dynamic Views */}
-      <main style={{ flex: 1 }}>
-        {currentTab === 'command_center' && (
-          <AdminDashboard
-            venue={venue}
-            riskAssessments={riskAssessments}
-            alerts={alerts}
-            systemErrors={systemErrors}
-            redirections={redirections}
-            broadcasts={broadcasts}
-            onOpenSOSForGate={handleOpenSOSForGate}
-            onOpenBroadcastForGate={handleOpenBroadcastForGate}
-          />
-        )}
+      {/* ── Main Right Content Area ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowX: 'hidden' }}>
+        {/* Top Header Bar */}
+        <Navbar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          venue={venue}
+          activeAlertCount={activeAlerts.length}
+          highestRisk={highestRisk}
+          onOpenSetup={() => setIsSetupOpen(true)}
+          onOpenDetectionApi={() => setIsDetectionApiOpen(true)}
+          onOpenBroadcast={() => {
+            setTargetedGateId(null);
+            setIsBroadcastOpen(true);
+          }}
+          onOpenSOS={() => {
+            setTargetedGateId(null);
+            setIsSOSOpen(true);
+          }}
+          onOpenIncidentLog={() => setIsIncidentLogOpen(true)}
+        />
 
-        {currentTab === 'public_signage' && (
-          <PublicSignageView
-            venue={venue}
-            gates={venue.gates}
-            riskAssessments={riskAssessments}
-            redirections={redirections}
-            broadcasts={broadcasts}
-          />
-        )}
+        {/* Dynamic Views */}
+        <main style={{ flex: 1 }}>
+          {currentTab === 'command_center' && (
+            <AdminDashboard
+              venue={venue}
+              riskAssessments={riskAssessments}
+              alerts={alerts}
+              systemErrors={systemErrors}
+              redirections={redirections}
+              broadcasts={broadcasts}
+              onOpenSOSForGate={handleOpenSOSForGate}
+              onOpenBroadcastForGate={handleOpenBroadcastForGate}
+            />
+          )}
 
-        {currentTab === 'vision_feed' && (
-          <VisionStreamView
-            venue={venue}
-            gates={venue.gates}
-            visionMedia={visionMedia}
-            setVisionMedia={setVisionMedia}
-          />
-        )}
-      </main>
+          {currentTab === 'public_signage' && (
+            <PublicSignageView
+              venue={venue}
+              gates={venue.gates}
+              riskAssessments={riskAssessments}
+              redirections={redirections}
+              broadcasts={broadcasts}
+            />
+          )}
+
+          {currentTab === 'vision_feed' && (
+            <VisionStreamView
+              venue={venue}
+              gates={venue.gates}
+              visionMedia={visionMedia}
+              setVisionMedia={setVisionMedia}
+            />
+          )}
+        </main>
+      </div>
 
       {/* Modals & Dialogs */}
       <BroadcastModal
