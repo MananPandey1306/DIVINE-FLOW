@@ -27,6 +27,9 @@ export const SOSModal: React.FC<SOSModalProps> = ({
   const [selectedGateId, setSelectedGateId] = useState<string>(targetGateId || (gates[0]?.id ?? ''));
   const [emergencyType, setEmergencyType] = useState<SOSDispatch['emergencyType']>('stampede_risk');
   const [notes, setNotes] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState<string>(() =>
+    typeof window !== 'undefined' ? localStorage.getItem('sos_external_webhook_url') || '' : ''
+  );
   const [units, setUnits] = useState<string[]>([
     'Gujarat Police / Somnath Trust Security Quick Response',
     'Somnath Emergency Ambulance #02 (Veraval)',
@@ -35,6 +38,14 @@ export const SOSModal: React.FC<SOSModalProps> = ({
   ]);
 
   if (!isOpen) return null;
+
+  const isAyodhya = gates.some(
+    (g) =>
+      g.name.toLowerCase().includes('ram') ||
+      g.name.toLowerCase().includes('ayodhya') ||
+      g.name.toLowerCase().includes('janmabhoomi') ||
+      g.code.startsWith('AP-')
+  );
 
   const currentGate = gates.find((g) => g.id === selectedGateId) || gates[0];
   const density = currentGate ? Math.round((currentGate.currentCount / currentGate.maxSafeCapacity) * 100) : 0;
@@ -53,9 +64,10 @@ export const SOSModal: React.FC<SOSModalProps> = ({
     dataIngestionService.triggerSOS(
       currentGate.id,
       emergencyType,
-      notes.trim() || 'Immediate tactical pilgrimage emergency response summoned from Somnath Central Command.',
+      notes.trim() || `Immediate tactical emergency response summoned from ${isAyodhya ? 'Ayodhya' : 'Somnath'} Central Command.`,
       units,
-      'Somnath Incident Commander'
+      isAyodhya ? 'Ayodhya ICCC Commander' : 'Somnath Incident Commander',
+      webhookUrl.trim() || undefined
     );
 
     onClose();
@@ -235,26 +247,30 @@ export const SOSModal: React.FC<SOSModalProps> = ({
           </div>
         </div>
 
-        {/* Dispatch Notes */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#cbd5e1', display: 'block', marginBottom: '6px' }}>
-            Tactical Notes & Ground Instructions:
+        {/* External Webhook Target */}
+        <div style={{ marginBottom: '18px' }}>
+          <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span>🔗 External Police CAD / Webhook URL (Optional):</span>
+            <span style={{ fontSize: '0.72rem', color: '#00b894' }}>Auto-synced on dispatch</span>
           </label>
-          <textarea
-            rows={2}
-            placeholder="Situation details (e.g. Surge at Sea Walkway corridor. Deploy Gujarat Police marshals and open Sardar Patel Marg bypass immediately)..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+          <input
+            type="text"
+            placeholder="e.g. https://police-cad.gov.in/api/v1/sos or https://webhook.site/..."
+            value={webhookUrl}
+            onChange={(e) => {
+              setWebhookUrl(e.target.value);
+              if (typeof window !== 'undefined') localStorage.setItem('sos_external_webhook_url', e.target.value);
+            }}
             style={{
               width: '100%',
               background: '#070d1d',
-              color: '#f8fafc',
+              color: '#34d399',
+              fontFamily: 'var(--font-mono)',
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '8px',
               padding: '8px 12px',
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               outline: 'none',
-              resize: 'vertical',
             }}
           />
         </div>
@@ -268,10 +284,10 @@ export const SOSModal: React.FC<SOSModalProps> = ({
             type="button"
             onClick={handleDispatch}
             className="btn btn-sos"
-            style={{ fontSize: '0.88rem', padding: '10px 24px' }}
+            style={{ fontSize: '0.88rem', padding: '10px 24px', letterSpacing: '0.04em' }}
           >
             <Flame size={18} />
-            CONFIRM SOMNATH SOS DISPATCH
+            CONFIRM {isAyodhya ? 'AYODHYA' : 'SOMNATH'} SOS DISPATCH
           </button>
         </div>
       </div>

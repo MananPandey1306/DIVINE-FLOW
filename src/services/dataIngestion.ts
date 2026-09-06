@@ -532,7 +532,8 @@ export class DataIngestionService {
     emergencyType: SOSDispatch['emergencyType'],
     notes: string,
     unitsDispatched: string[],
-    caller = 'Somnath Shrine Command'
+    caller = 'Somnath Shrine Command',
+    customWebhookUrl?: string
   ) {
     const gate = this.venue.gates.find((g) => g.id === gateId);
     if (!gate) return;
@@ -556,8 +557,75 @@ export class DataIngestionService {
     };
 
     this.sosDispatches.unshift(sos);
-    this.logIncident('SOS', 'critical', `SOMNATH EMERGENCY SOS: ${emergencyType.toUpperCase()} at ${gate.name}. Units: ${unitsDispatched.join(', ')}`, gate.id, caller);
-    
+    this.logIncident(
+      'SOS',
+      'critical',
+      `EMERGENCY SOS: ${emergencyType.toUpperCase()} at ${gate.name}. Units: ${unitsDispatched.join(', ')}`,
+      gate.id,
+      caller
+    );
+
+    // Asynchronous Outbound Webhook to External Website / CAD / Police ERSS 112
+    const webhookUrl =
+      customWebhookUrl ||
+      (typeof window !== 'undefined' ? localStorage.getItem('sos_external_webhook_url') : null);
+
+    if (webhookUrl && webhookUrl.startsWith('http')) {
+      const payload = {
+        event: 'PILGRIM_CROWD_EMERGENCY_SOS',
+        incidentId: sos.id,
+        timestamp: sos.timestamp,
+        venue: {
+          id: this.venue.id,
+          name: this.venue.name,
+          totalHeadcount: this.venue.gates.reduce((sum, g) => sum + g.currentCount, 0),
+        },
+        incidentLocation: {
+          gateId: gate.id,
+          gateCode: gate.code,
+          gateName: gate.name,
+          zone: gate.zone,
+          gps: gate.location.gps || { lat: 20.8880, lng: 70.4012 },
+        },
+        telemetry: {
+          currentCrowdHeadcount: gate.currentCount,
+          maxSafeCapacity: gate.maxSafeCapacity,
+          densityPercentage: density,
+          riskLevel: 'CRITICAL_STAMPEDE_HAZARD',
+        },
+        dispatchDetails: {
+          emergencyType,
+          caller,
+          tacticalNotes: notes,
+          unitsDispatched,
+        },
+      };
+
+      fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+        .then((res) => {
+          this.logIncident(
+            'SOS',
+            'low',
+            `External SOS Webhook delivered to ${webhookUrl} (Status ${res.status})`,
+            gate.id,
+            'Webhook Dispatcher'
+          );
+        })
+        .catch((err) => {
+          this.logIncident(
+            'SENSOR_FAIL',
+            'medium',
+            `External SOS Webhook delivery failed: ${err.message}`,
+            gate.id,
+            'Webhook Dispatcher'
+          );
+        });
+    }
+
     audioService.playSosAlarm();
     this.notify();
   }
