@@ -1,62 +1,64 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 /* ═══════════════════════════════════════════════
-   DESIGN TOKENS — HOSTINGER LIGHT VIOLET THEME
+   DESIGN TOKENS — LUNO AWARD-WINNING DASHBOARD THEME
 ═══════════════════════════════════════════════ */
 :root {
   --font-sans: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-display: 'Outfit', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Canvas — Radiant Clean Lavender & White Palette */
-  --bg-base:        #f8f6fc;
+  /* Canvas — Clean LUNO Crisp Light Grey & Pure White */
+  --bg-base:        #f4f7f6;
   --bg-raised:      #ffffff;
-  --bg-overlay:     #f2edfc;
-  --bg-muted:       #e9e2f8;
-  --bg-subtle:      #ddd4f4;
+  --bg-overlay:     #ffffff;
+  --bg-muted:       #eef2f5;
+  --bg-subtle:      #e2e8f0;
 
   /* Borders */
-  --border:         rgba(124, 58, 237, 0.12);
-  --border-md:      rgba(124, 58, 237, 0.22);
-  --border-bright:  rgba(124, 58, 237, 0.45);
+  --border:         #edf2f7;
+  --border-md:      #e2e8f0;
+  --border-bright:  #cbd5e1;
 
-  /* Brand / Royal Violet & Lilac Accents */
-  --accent:         #6d28d9;
-  --accent-hover:   #5b21b6;
-  --accent-light:   rgba(109, 40, 217, 0.08);
-  --accent-glow:    rgba(109, 40, 217, 0.25);
-  --lilac:          #7c3aed;
-  --lilac-light:    rgba(124, 58, 237, 0.08);
-  --cyan:           #0284c7;
-  --cyan-light:     rgba(2, 132, 199, 0.08);
-  --cyan-glow:      rgba(2, 132, 199, 0.25);
+  /* LUNO Brand & Accent Accents */
+  --accent:         #00c9a7;
+  --accent-hover:   #00b092;
+  --accent-light:   rgba(0, 201, 167, 0.08);
+  --accent-glow:    rgba(0, 201, 167, 0.25);
+  --teal:           #00c9a7;
+  --teal-light:     rgba(0, 201, 167, 0.10);
+  --ocean:          #0ea5e9;
+  --ocean-light:    rgba(14, 165, 233, 0.10);
+  --purple:         #8b5cf6;
+  --purple-light:   rgba(139, 92, 246, 0.10);
 
-  /* Gradients */
-  --violet-gradient: linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%);
-  --purple-banner:   linear-gradient(135deg, #5e17eb 0%, #7c3aed 50%, #9333ea 100%);
-  --glow-radial:     radial-gradient(circle at 50% 0%, rgba(192, 132, 252, 0.25) 0%, transparent 70%);
+  /* LUNO Gradients */
+  --luno-gradient:   linear-gradient(135deg, #0ea5e9 0%, #00c9a7 100%);
+  --violet-gradient: linear-gradient(135deg, #0ea5e9 0%, #00c9a7 100%);
+  --purple-banner:   linear-gradient(135deg, #0ea5e9 0%, #00c9a7 100%);
+  --glow-radial:     radial-gradient(circle at 50% 0%, rgba(0, 201, 167, 0.15) 0%, transparent 70%);
 
-  /* Risk palette */
-  --green:          #059669;
-  --green-light:    rgba(5, 150, 105, 0.1);
-  --yellow:         #d97706;
-  --yellow-light:   rgba(217, 119, 6, 0.1);
-  --orange:         #ea580c;
-  --orange-light:   rgba(234, 88, 12, 0.1);
-  --red:            #dc2626;
-  --red-light:      rgba(220, 38, 38, 0.1);
-  --pink:           #db2777;
-  --pink-light:     rgba(219, 39, 119, 0.1);
+  /* Risk & Status palette */
+  --green:          #00c9a7;
+  --green-light:    rgba(0, 201, 167, 0.10);
+  --yellow:         #f59e0b;
+  --yellow-light:   rgba(245, 158, 11, 0.10);
+  --orange:         #f97316;
+  --orange-light:   rgba(249, 115, 22, 0.10);
+  --red:            #f43f5e;
+  --red-light:      rgba(244, 63, 94, 0.10);
+  --pink:           #ec4899;
+  --pink-light:     rgba(236, 72, 153, 0.10);
 
-  /* Text — High Contrast Clean Typography */
-  --text-primary:   #0f172a;
-  --text-secondary: #334155;
+  /* Text — Crisp LUNO Typography */
+  --text-primary:   #1e293b;
+  --text-secondary: #475569;
   --text-muted:     #64748b;
   --text-faint:     #94a3b8;
 
   /* Elevation */
-  --card-shadow:    0 10px 30px rgba(76, 29, 149, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-  --card-radius:    18px;
+  --card-shadow:    0 2px 6px rgba(0, 0, 0, 0.03), 0 10px 24px rgba(0, 0, 0, 0.02);
+  --card-radius:    14px;
 }
 
 /* ═══════════════════════════════════════════════

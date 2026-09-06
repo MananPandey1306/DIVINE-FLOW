@@ -603,14 +603,21 @@ export class VisionDetector {
     const maxAllowedHeight = frameHeight * 0.70;
 
     const filtered = detections.filter((d) => {
+      const isFar = d.distanceTier === 'far' || d.headY < frameHeight * 0.48 || d.height < frameHeight * 0.12;
       // Reject giant multi-person group boxes or floor rectangles
       if (d.width > maxAllowedWidth || d.height > maxAllowedHeight) return false;
       // Reject horizontal non-person floor boxes
-      if (d.width > d.height * 1.5 && d.width > 60) return false;
-      // Reject tiny speckles
-      if (d.width < 10 || d.height < 16) return false;
-      const confidenceGuard = d.confidence >= this.cocoConfidenceThreshold * 0.85;
-      return confidenceGuard;
+      if (d.width > d.height * 1.5 && d.width > 50) return false;
+      
+      // Far distance adaptive check: allow small distant heads and people
+      if (isFar) {
+        if (d.width < 5 || d.height < 8) return false;
+        return d.confidence >= this.cocoConfidenceThreshold * 0.60;
+      }
+      
+      // Foreground / Midground check
+      if (d.width < 10 || d.height < 14) return false;
+      return d.confidence >= this.cocoConfidenceThreshold * 0.80;
     });
 
     const faces = filtered.filter(d => d.detectionSource === 'blazeface');
@@ -786,7 +793,8 @@ export class VisionDetector {
         const bh = Math.max(18, isNorm ? box.height * height : box.height);
         const cx = bx + bw / 2;
         const cy = by + bh / 2;
-        const headRadius = Math.max(7, Math.min(34, Math.max(bw, bh) * 0.18));
+        const isFar = cy < height * 0.48 || bh < height * 0.12;
+        const headRadius = Math.max(isFar ? 3.5 : 6, Math.min(34, Math.max(bw, bh) * 0.18));
         return {
           id: idx + 1,
           x: cx,
@@ -799,7 +807,7 @@ export class VisionDetector {
           confidence: Math.round(score * 100) / 100,
           label: `Person #${idx + 1}`,
           trackAge: 10,
-          distanceTier: (bh > height * 0.3 ? 'close' : bh > height * 0.08 ? 'mid' : 'far') as any,
+          distanceTier: (bh > height * 0.28 ? 'close' : isFar ? 'far' : 'mid') as any,
           viewOrientation: 'rear_or_side' as const,
           rowCategory: (cy < height * 0.38 ? 'background' : cy < height * 0.68 ? 'midground' : 'foreground') as any,
           detectionSource: 'coco_body' as const,
@@ -812,16 +820,19 @@ export class VisionDetector {
       const box = det.boundingBox;
       if (!box) return null;
       const score = det.categories?.[0]?.score ?? 0.85;
-      if (score < this.confidenceThreshold) return null;
       const isNorm = box.width <= 1.0 && box.height <= 1.0 && box.originX <= 1.0 && box.originY <= 1.0;
       const bx = Math.max(0, isNorm ? box.originX * width : box.originX);
       const by = Math.max(0, isNorm ? box.originY * height : box.originY);
-      const bw = Math.max(10, isNorm ? box.width * width : box.width);
-      const bh = Math.max(10, isNorm ? box.height * height : box.height);
+      const bw = Math.max(6, isNorm ? box.width * width : box.width);
+      const bh = Math.max(6, isNorm ? box.height * height : box.height);
       const cx = bx + bw / 2;
       const cy = by + bh / 2;
-      const headRadius = Math.max(7, Math.max(bw, bh) * 0.48);
-      const distanceTier: "close" | "mid" | "far" = bw > width * 0.14 ? "close" : bw < width * 0.04 ? "far" : "mid";
+      const isFar = cy < height * 0.48 || bw < width * 0.05;
+      const threshold = isFar ? this.confidenceThreshold * 0.72 : this.confidenceThreshold;
+      if (score < threshold) return null;
+
+      const headRadius = Math.max(isFar ? 4 : 7, Math.max(bw, bh) * 0.48);
+      const distanceTier: "close" | "mid" | "far" = bw > width * 0.14 ? "close" : isFar ? "far" : "mid";
       const landmarks: FacialLandmark[] = [];
       if (det.keypoints?.length > 0) {
         const names = ["right_eye", "left_eye", "nose", "mouth", "right_ear", "left_ear"] as const;
@@ -838,8 +849,8 @@ export class VisionDetector {
         id: idx + 1,
         x: cx,
         y: cy + bh * 1.5,
-        width: Math.max(24, bw * 2.2),
-        height: Math.max(34, bh * 3.8),
+        width: Math.max(14, bw * 2.0),
+        height: Math.max(20, bh * 3.2),
         headX: cx,
         headY: cy,
         headRadius,
@@ -857,11 +868,18 @@ export class VisionDetector {
 
   private parseCocoPredictions(persons: any[], width: number, height: number): DetectedEntity[] {
     return persons
-      .filter((p: any) => p.score >= this.cocoConfidenceThreshold)
+      .filter((p: any) => {
+        const bh = p.bbox?.[3] ?? 0;
+        const cy = (p.bbox?.[1] ?? 0) + bh / 2;
+        const isFar = cy < height * 0.48 || bh < height * 0.12;
+        const requiredScore = isFar ? this.cocoConfidenceThreshold * 0.65 : this.cocoConfidenceThreshold * 0.85;
+        return p.score >= requiredScore;
+      })
       .map((p: any, idx: number) => {
         const [bx, by, bw, bh] = p.bbox;
         const cx = bx + bw / 2;
         const cy = by + bh / 2;
+        const isFar = cy < height * 0.48 || bh < height * 0.10;
         return {
           id: idx + 1,
           x: cx,
@@ -870,11 +888,11 @@ export class VisionDetector {
           height: bh,
           headX: cx,
           headY: by + Math.min(bh * 0.16, 32),
-          headRadius: Math.max(6, Math.min(45, bw * 0.25)),
+          headRadius: Math.max(isFar ? 3.5 : 6, Math.min(45, bw * 0.25)),
           confidence: Math.round(p.score * 100) / 100,
           label: `Person #${idx + 1}`,
           trackAge: 10,
-          distanceTier: (bh > height * 0.32 ? "close" : bh > height * 0.09 ? "mid" : "far") as any,
+          distanceTier: (bh > height * 0.28 ? "close" : isFar ? "far" : "mid") as any,
           viewOrientation: "rear_or_side" as const,
           rowCategory: (cy < height * 0.38 ? "background" : cy < height * 0.68 ? "midground" : "foreground") as any,
           detectionSource: "coco_body" as const,
