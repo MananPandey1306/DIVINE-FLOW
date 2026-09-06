@@ -73,8 +73,8 @@ export class VisionDetector {
   private sensitivity: "low" | "medium" | "high" | "ultra" | "max" = "medium";
   private detectionMode: "mediapipe_crowd_face" | "mediapipe_short" | "hybrid" | "cloud_api" = "hybrid";
   private viewMode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid" = "reticles";
-  private confidenceThreshold = 0.28;
-  private cocoConfidenceThreshold = 0.18;
+  private confidenceThreshold = 0.32;
+  private cocoConfidenceThreshold = 0.24;
   private countMultiplier = 1.0;
   private manualOffset = 0;
 
@@ -256,11 +256,11 @@ export class VisionDetector {
 
   public setSensitivity(s: "low" | "medium" | "high" | "ultra" | "max") {
     this.sensitivity = s;
-    if (s === "low") { this.confidenceThreshold = 0.35; this.cocoConfidenceThreshold = 0.22; }
-    else if (s === "medium") { this.confidenceThreshold = 0.28; this.cocoConfidenceThreshold = 0.18; }
-    else if (s === "high") { this.confidenceThreshold = 0.20; this.cocoConfidenceThreshold = 0.14; }
-    else if (s === "ultra") { this.confidenceThreshold = 0.14; this.cocoConfidenceThreshold = 0.10; }
-    else if (s === "max") { this.confidenceThreshold = 0.10; this.cocoConfidenceThreshold = 0.07; }
+    if (s === "low") { this.confidenceThreshold = 0.44; this.cocoConfidenceThreshold = 0.34; }
+    else if (s === "medium") { this.confidenceThreshold = 0.32; this.cocoConfidenceThreshold = 0.24; }
+    else if (s === "high") { this.confidenceThreshold = 0.24; this.cocoConfidenceThreshold = 0.17; }
+    else if (s === "ultra") { this.confidenceThreshold = 0.16; this.cocoConfidenceThreshold = 0.12; }
+    else if (s === "max") { this.confidenceThreshold = 0.12; this.cocoConfidenceThreshold = 0.08; }
     try { this.blazefaceVideoDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
     try { this.blazefaceImageDetector?.setOptions({ minDetectionConfidence: this.confidenceThreshold }); } catch {}
   }
@@ -500,8 +500,6 @@ export class VisionDetector {
           return [];
         })()
       );
-      // Multi-Scale Tiled Pass for distant occluded persons
-      localPromises.push(this.runMultiScaleScan(video, width, height));
     } else if (this.isObjectDetectorReady && this.objectDetector) {
       localPromises.push(
         (async () => {
@@ -521,11 +519,11 @@ export class VisionDetector {
       if (Array.isArray(list)) detections.push(...list);
     });
 
-    const refined = this.refineCrowdDetections(detections);
+    const refined = this.refineCrowdDetections(detections, width, height);
 
     if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
       this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD Multi-Scale";
+      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
     }
 
     this.densityEstimate = this.estimateDensityGrid(refined, width, height);
@@ -570,7 +568,6 @@ export class VisionDetector {
           return [];
         })()
       );
-      localPromises.push(this.runMultiScaleScan(source, width, height));
     } else if (this.isObjectDetectorReady && this.objectDetector) {
       localPromises.push(
         (async () => {
@@ -590,78 +587,30 @@ export class VisionDetector {
       if (Array.isArray(list)) detections.push(...list);
     });
 
-    const refined = this.refineCrowdDetections(detections);
+    const refined = this.refineCrowdDetections(detections, width, height);
 
     if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
       this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD Multi-Scale";
+      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
     }
 
     this.densityEstimate = this.estimateDensityGrid(refined, width, height);
     return this.applyNMS(refined);
   }
 
-  private async runMultiScaleScan(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, width: number, height: number): Promise<DetectedEntity[]> {
-    if (!this.cocoModel || this.sensitivity === "low") {
-      return [];
-    }
-    const extra: DetectedEntity[] = [];
-    const tiles = [
-      { sx: 0, sy: 0, sw: width * 0.60, sh: height * 0.85, ox: 0, oy: 0 },
-      { sx: width * 0.40, sy: 0, sw: width * 0.60, sh: height * 0.85, ox: width * 0.40, oy: 0 },
-    ];
+  private refineCrowdDetections(detections: DetectedEntity[], frameWidth = 1280, frameHeight = 720): DetectedEntity[] {
+    const maxAllowedWidth = frameWidth * 0.32;
+    const maxAllowedHeight = frameHeight * 0.70;
 
-    for (const tile of tiles) {
-      try {
-        const cropCanvas = document.createElement('canvas');
-        cropCanvas.width = 416;
-        cropCanvas.height = 416;
-        const ctx = cropCanvas.getContext('2d');
-        if (!ctx) continue;
-        ctx.drawImage(source, tile.sx, tile.sy, tile.sw, tile.sh, 0, 0, 416, 416);
-
-        const preds = await this.cocoModel.detect(cropCanvas, 50, this.cocoConfidenceThreshold);
-        const persons = preds.filter((p: any) => p.class === "person");
-
-        for (const p of persons) {
-          const [cx, cy, cw, ch] = p.bbox;
-          const rx = tile.ox + (cx / 416) * tile.sw;
-          const ry = tile.oy + (cy / 416) * tile.sh;
-          const rw = (cw / 416) * tile.sw;
-          const rh = (ch / 416) * tile.sh;
-          const centerX = rx + rw / 2;
-          const centerY = ry + rh / 2;
-          const headRadius = Math.max(6, Math.min(38, rw * 0.25));
-
-          extra.push({
-            id: 0,
-            x: centerX,
-            y: centerY,
-            width: rw,
-            height: rh,
-            headX: centerX,
-            headY: ry + Math.min(rh * 0.16, 32),
-            headRadius,
-            confidence: Math.round(p.score * 100) / 100,
-            label: 'Person',
-            trackAge: 10,
-            distanceTier: rh > height * 0.28 ? 'close' : rh > height * 0.08 ? 'mid' : 'far',
-            viewOrientation: 'rear_or_side',
-            rowCategory: centerY < height * 0.38 ? 'background' : centerY < height * 0.68 ? 'midground' : 'foreground',
-            detectionSource: 'coco_body',
-          });
-        }
-      } catch {}
-    }
-    return extra;
-  }
-
-  private refineCrowdDetections(detections: DetectedEntity[]): DetectedEntity[] {
     const filtered = detections.filter((d) => {
-      const area = d.width * d.height;
-      const acceptableSize = area >= 120 && (d.headRadius >= 4 || d.distanceTier !== 'far');
-      const confidenceGuard = d.confidence >= this.cocoConfidenceThreshold * 0.75;
-      return acceptableSize && confidenceGuard;
+      // Reject giant multi-person group boxes or floor rectangles
+      if (d.width > maxAllowedWidth || d.height > maxAllowedHeight) return false;
+      // Reject horizontal non-person floor boxes
+      if (d.width > d.height * 1.5 && d.width > 60) return false;
+      // Reject tiny speckles
+      if (d.width < 10 || d.height < 16) return false;
+      const confidenceGuard = d.confidence >= this.cocoConfidenceThreshold * 0.85;
+      return confidenceGuard;
     });
 
     const faces = filtered.filter(d => d.detectionSource === 'blazeface');
@@ -676,7 +625,7 @@ export class VisionDetector {
       let minFaceDist = 99999;
       faces.forEach((f, fIdx) => {
         if (matchedFaceIndices.has(fIdx)) return;
-        const inHorizontal = f.headX >= b.x - b.width * 0.65 && f.headX <= b.x + b.width * 0.65;
+        const inHorizontal = f.headX >= b.x - b.width * 0.60 && f.headX <= b.x + b.width * 0.60;
         const inVertical = f.headY >= b.y - b.height * 0.70 && f.headY <= b.y + b.height * 0.25;
         const dist = Math.hypot(f.headX - b.headX, f.headY - b.headY);
         if (inHorizontal && inVertical && dist < minFaceDist) {
@@ -934,33 +883,43 @@ export class VisionDetector {
       .filter(Boolean) as DetectedEntity[];
   }
 
-  private applyNMS(detections: DetectedEntity[], iouThreshold = 0.45): DetectedEntity[] {
+  private applyNMS(detections: DetectedEntity[], iouThreshold = 0.35): DetectedEntity[] {
     detections.sort((a, b) => b.confidence - a.confidence);
     const accepted: DetectedEntity[] = [];
     for (const cand of detections) {
-      const r = Math.max(cand.headRadius, 6);
-      const [cx1, cy1, cx2, cy2] = [cand.headX - r, cand.headY - r, cand.headX + r, cand.headY + r];
-      const candArea = (cx2 - cx1) * (cy2 - cy1);
+      const cx1 = cand.x - cand.width / 2;
+      const cy1 = cand.y - cand.height / 2;
+      const cx2 = cand.x + cand.width / 2;
+      const cy2 = cand.y + cand.height / 2;
+      const candArea = cand.width * cand.height;
+
       let suppressed = false;
       for (const kept of accepted) {
-        const kr = Math.max(kept.headRadius, 6);
-        const [kx1, ky1, kx2, ky2] = [kept.headX - kr, kept.headY - kr, kept.headX + kr, kept.headY + kr];
-        if (cand.distanceTier === "far" && kept.distanceTier === "far") {
-          if (Math.hypot(kept.headX - cand.headX, kept.headY - cand.headY) < 10) {
-            suppressed = true;
-            break;
-          }
-          continue;
+        const kx1 = kept.x - kept.width / 2;
+        const ky1 = kept.y - kept.height / 2;
+        const kx2 = kept.x + kept.width / 2;
+        const ky2 = kept.y + kept.height / 2;
+        const keptArea = kept.width * kept.height;
+
+        // Proximity check on center points and head points
+        const centerDist = Math.hypot(kept.x - cand.x, kept.y - cand.y);
+        const headDist = Math.hypot(kept.headX - cand.headX, kept.headY - cand.headY);
+        const minDim = Math.min(kept.width, cand.width);
+
+        if (centerDist < minDim * 0.55 || headDist < Math.max(14, kept.headRadius * 1.5)) {
+          suppressed = true;
+          break;
         }
+
         const interW = Math.max(0, Math.min(cx2, kx2) - Math.max(cx1, kx1));
         const interH = Math.max(0, Math.min(cy2, ky2) - Math.max(cy1, ky1));
         const interArea = interW * interH;
-        if (interArea === 0) continue;
-        const keptArea = (kx2 - kx1) * (ky2 - ky1);
-        const iou = interArea / (candArea + keptArea - interArea || 1);
-        if (iou > iouThreshold) {
-          suppressed = true;
-          break;
+        if (interArea > 0) {
+          const iou = interArea / (candArea + keptArea - interArea || 1);
+          if (iou > iouThreshold) {
+            suppressed = true;
+            break;
+          }
         }
       }
       if (!suppressed) accepted.push(cand);
