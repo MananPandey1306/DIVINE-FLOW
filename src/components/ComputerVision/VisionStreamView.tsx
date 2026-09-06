@@ -36,6 +36,18 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
   const [pendingGateType, setPendingGateType] = useState<'entry' | 'exit' | 'both'>('both');
   const [scanMode, setScanMode] = useState<'camera' | 'webcam' | null>(null);
   const [scanError, setScanError] = useState('');
+  const [sensitivity, setSensitivityState] = useState<'low' | 'medium' | 'high' | 'ultra'>('medium');
+  const [viewMode, setViewModeState] = useState<'reticles' | 'dots_only' | 'landmarks' | 'heatmap' | 'hybrid'>('reticles');
+
+  const handleSensitivityChange = (newSens: 'low' | 'medium' | 'high' | 'ultra') => {
+    setSensitivityState(newSens);
+    visionDetector.setSensitivity(newSens);
+  };
+
+  const handleViewModeChange = (newMode: 'reticles' | 'dots_only' | 'landmarks' | 'heatmap' | 'hybrid') => {
+    setViewModeState(newMode);
+    visionDetector.setViewMode(newMode);
+  };
 
   useEffect(() => {
     if (!selectedGateId && gates[0]) {
@@ -420,15 +432,68 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
 
       <section className="vision-workspace">
         <div className="stream-panel">
-          <div className="panel-heading">
+          <div className="panel-heading" style={{ flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <p className="eyebrow">Selected feed</p>
               <h2>{selectedGate ? `${selectedGate.code} / ${selectedGate.name.replace(/^Gate \d+ - /, '')}` : 'Choose a gate'}</h2>
             </div>
-            <span className={`live-label ${stats ? 'is-live' : ''}`}>
-              <span />
-              {stats ? 'ANALYZING UPLOAD' : 'WAITING FOR INPUT'}
-            </span>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.75)', padding: '3px 6px', borderRadius: '10px', border: '1px solid rgba(139,92,246,0.22)' }}>
+                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#6d28d9', paddingRight: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sens:</span>
+                {(['low', 'medium', 'high', 'ultra'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleSensitivityChange(s)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: sensitivity === s ? '#7c3aed' : 'transparent',
+                      color: sensitivity === s ? '#ffffff' : '#64748b',
+                      transition: 'all 0.15s ease',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', background: 'rgba(255,255,255,0.75)', padding: '3px 6px', borderRadius: '10px', border: '1px solid rgba(139,92,246,0.22)' }}>
+                <span style={{ fontSize: '0.66rem', fontWeight: 700, color: '#6d28d9', paddingRight: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>View:</span>
+                {(['reticles', 'dots_only', 'heatmap', 'hybrid'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => handleViewModeChange(m)}
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '0.68rem',
+                      fontWeight: 600,
+                      borderRadius: '6px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: viewMode === m ? '#7c3aed' : 'transparent',
+                      color: viewMode === m ? '#ffffff' : '#64748b',
+                      transition: 'all 0.15s ease',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {m === 'dots_only' ? 'Dots' : m}
+                  </button>
+                ))}
+              </div>
+
+              <span className={`live-label ${stats ? 'is-live' : ''}`}>
+                <span />
+                {stats ? 'ANALYZING' : 'READY'}
+              </span>
+            </div>
           </div>
 
           <div className="video-stage">

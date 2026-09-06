@@ -70,11 +70,11 @@ export class VisionDetector {
   private mode: "simulated" | "webcam" | "image" | "video_file" = "simulated";
   private countHistory: number[] = [];
 
-  private sensitivity: "low" | "medium" | "high" | "ultra" | "max" = "ultra";
+  private sensitivity: "low" | "medium" | "high" | "ultra" | "max" = "medium";
   private detectionMode: "mediapipe_crowd_face" | "mediapipe_short" | "hybrid" | "cloud_api" = "hybrid";
-  private viewMode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid" = "hybrid";
-  private confidenceThreshold = 0.18;
-  private cocoConfidenceThreshold = 0.12;
+  private viewMode: "reticles" | "dots_only" | "landmarks" | "heatmap" | "hybrid" = "reticles";
+  private confidenceThreshold = 0.28;
+  private cocoConfidenceThreshold = 0.18;
   private countMultiplier = 1.0;
   private manualOffset = 0;
 
@@ -492,16 +492,14 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections);
-    const denseCrowdHeads = this.extractDenseCrowdPoints(video, width, height, refined);
-    const combined = [...refined, ...denseCrowdHeads];
 
-    if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
-      this.modelStatus = `Multi-Tier Crowd AI (${combined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD + Dense Grid";
+    if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
+      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
     }
 
-    this.densityEstimate = this.estimateDensityGrid(combined, width, height);
-    return this.applyNMS(combined);
+    this.densityEstimate = this.estimateDensityGrid(refined, width, height);
+    return this.applyNMS(refined);
   }
 
   private async runImageDetection(source: HTMLImageElement | HTMLCanvasElement, width: number, height: number): Promise<DetectedEntity[]> {
@@ -562,139 +560,21 @@ export class VisionDetector {
     });
 
     const refined = this.refineCrowdDetections(detections);
-    const denseCrowdHeads = this.extractDenseCrowdPoints(source, width, height, refined);
-    const combined = [...refined, ...denseCrowdHeads];
 
-    if (combined.length > 0 && !this.modelStatus.includes("YOLO")) {
-      this.modelStatus = `Multi-Tier Crowd AI (${combined.length} heads)`;
-      this.activeEngines = "BlazeFace + COCO-SSD + Dense Grid";
+    if (refined.length > 0 && !this.modelStatus.includes("YOLO")) {
+      this.modelStatus = `Multi-Tier Crowd AI (${refined.length} heads)`;
+      this.activeEngines = "BlazeFace + COCO-SSD Ensemble";
     }
 
-    this.densityEstimate = this.estimateDensityGrid(combined, width, height);
-    return this.applyNMS(combined);
-  }
-
-  private extractDenseCrowdPoints(
-    source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement,
-    width: number,
-    height: number,
-    anchorDetections: DetectedEntity[]
-  ): DetectedEntity[] {
-    const sw = 320;
-    const sh = 180;
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = sw;
-    tempCanvas.height = sh;
-    const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return [];
-
-    try {
-      ctx.drawImage(source, 0, 0, sw, sh);
-      const imgData = ctx.getImageData(0, 0, sw, sh);
-      const data = imgData.data;
-
-      const gridW = 36;
-      const gridH = 22;
-      const cellW = sw / gridW;
-      const cellH = sh / gridH;
-
-      const extraDetections: DetectedEntity[] = [];
-      const occupied = new Set<string>();
-
-      // Mark anchor detections on grid
-      anchorDetections.forEach((a) => {
-        const gx = Math.floor((a.headX / width) * gridW);
-        const gy = Math.floor((a.headY / height) * gridH);
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            occupied.add(`${gx + dx},${gy + dy}`);
-          }
-        }
-      });
-
-      for (let gy = 1; gy < gridH - 1; gy++) {
-        for (let gx = 1; gx < gridW - 1; gx++) {
-          if (occupied.has(`${gx},${gy}`)) continue;
-
-          let lumSum = 0;
-          let minLum = 255;
-          let minX = 0, minY = 0;
-          const cx = Math.floor(gx * cellW);
-          const cy = Math.floor(gy * cellH);
-
-          for (let py = 0; py < cellH; py++) {
-            for (let px = 0; px < cellW; px++) {
-              const idx = ((cy + py) * sw + (cx + px)) * 4;
-              const r = data[idx];
-              const g = data[idx + 1];
-              const b = data[idx + 2];
-              const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-              lumSum += lum;
-              if (lum < minLum) {
-                minLum = lum;
-                minX = cx + px;
-                minY = cy + py;
-              }
-            }
-          }
-
-          const cellPixels = cellW * cellH;
-          const avgLum = lumSum / cellPixels;
-          let varianceSum = 0;
-
-          for (let py = 0; py < cellH; py++) {
-            for (let px = 0; px < cellW; px++) {
-              const idx = ((cy + py) * sw + (cx + px)) * 4;
-              const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-              varianceSum += (lum - avgLum) * (lum - avgLum);
-            }
-          }
-
-          const stdDev = Math.sqrt(varianceSum / cellPixels);
-          const isCrowdRegion = stdDev > 12 && avgLum > 18 && avgLum < 235;
-
-          if (isCrowdRegion) {
-            const worldX = (minX / sw) * width;
-            const worldY = (minY / sh) * height;
-            const yRatio = worldY / height;
-            const headR = Math.max(5, Math.min(22, 14 * yRatio + 4));
-            const bodyW = headR * 2.4;
-            const bodyH = headR * 3.6;
-
-            extraDetections.push({
-              id: anchorDetections.length + extraDetections.length + 1,
-              x: worldX,
-              y: worldY + headR * 1.2,
-              width: bodyW,
-              height: bodyH,
-              headX: worldX,
-              headY: worldY,
-              headRadius: headR,
-              confidence: Math.round((0.72 + (stdDev / 100) * 0.2) * 100) / 100,
-              label: `Person #${anchorDetections.length + extraDetections.length + 1}`,
-              trackAge: 10,
-              distanceTier: yRatio > 0.6 ? 'close' : yRatio > 0.25 ? 'mid' : 'far',
-              viewOrientation: 'rear_or_side',
-              rowCategory: yRatio < 0.35 ? 'background' : yRatio < 0.68 ? 'midground' : 'foreground',
-              detectionSource: 'density_grid',
-            });
-
-            occupied.add(`${gx},${gy}`);
-          }
-        }
-      }
-
-      return extraDetections;
-    } catch {
-      return [];
-    }
+    this.densityEstimate = this.estimateDensityGrid(refined, width, height);
+    return this.applyNMS(refined);
   }
 
   private refineCrowdDetections(detections: DetectedEntity[]): DetectedEntity[] {
     const filtered = detections.filter((d) => {
       const area = d.width * d.height;
-      const acceptableSize = area >= 20 && (d.headRadius >= 2.5 || d.distanceTier !== 'far');
-      const confidenceGuard = d.confidence >= 0.06 || d.distanceTier === 'close';
+      const acceptableSize = area >= 120 && (d.headRadius >= 4 || d.distanceTier !== 'far');
+      const confidenceGuard = d.confidence >= this.cocoConfidenceThreshold * 0.75;
       return acceptableSize && confidenceGuard;
     });
 
@@ -711,7 +591,7 @@ export class VisionDetector {
       faces.forEach((f, fIdx) => {
         if (matchedFaceIndices.has(fIdx)) return;
         const inHorizontal = f.headX >= b.x - b.width * 0.65 && f.headX <= b.x + b.width * 0.65;
-        const inVertical = f.headY >= b.y - b.height * 0.70 && f.headY <= b.y + b.height * 0.2;
+        const inVertical = f.headY >= b.y - b.height * 0.70 && f.headY <= b.y + b.height * 0.25;
         const dist = Math.hypot(f.headX - b.headX, f.headY - b.headY);
         if (inHorizontal && inVertical && dist < minFaceDist) {
           minFaceDist = dist;
