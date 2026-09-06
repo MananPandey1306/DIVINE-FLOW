@@ -36,8 +36,26 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
   const [pendingGateType, setPendingGateType] = useState<'entry' | 'exit' | 'both'>('both');
   const [scanMode, setScanMode] = useState<'camera' | 'webcam' | null>(null);
   const [scanError, setScanError] = useState('');
+  const [availableDevices, setAvailableDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [sensitivity, setSensitivityState] = useState<'low' | 'medium' | 'high' | 'ultra'>('medium');
   const [viewMode, setViewModeState] = useState<'reticles' | 'dots_only' | 'landmarks' | 'heatmap' | 'hybrid'>('reticles');
+
+  const refreshVideoDevices = useCallback(async () => {
+    const devices = await visionDetector.getAvailableVideoDevices();
+    if (devices.length > 0) {
+      setAvailableDevices(devices);
+      if (!selectedDeviceId) {
+        // Try to default to an Integrated / HD camera over virtual phone link cameras if available
+        const preferred = devices.find(d => !d.label.toLowerCase().includes('droid') && !d.label.toLowerCase().includes('phone') && !d.label.toLowerCase().includes('obs')) || devices[0];
+        setSelectedDeviceId(preferred.deviceId);
+      }
+    }
+  }, [selectedDeviceId]);
+
+  useEffect(() => {
+    void refreshVideoDevices();
+  }, [refreshVideoDevices]);
 
   const handleSensitivityChange = (newSens: 'low' | 'medium' | 'high' | 'ultra') => {
     setSensitivityState(newSens);
@@ -188,7 +206,7 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
     setIpError('');
   }, [gates, ipCameraUrl, selectedGateId]);
 
-  const startLiveScan = useCallback(async (mode: 'camera' | 'webcam') => {
+  const startLiveScan = useCallback(async (mode: 'camera' | 'webcam', targetDeviceId?: string) => {
     const gateId = selectedGateId || gates[0]?.id;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -203,16 +221,24 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
     audioService.unlockFromUserGesture();
     dataIngestionService.bindVisionFeedToGate(gateId);
     try {
-      const started = await visionDetector.startWebcam(video, canvas, mode === 'camera' ? 'environment' : 'user');
+      const devId = targetDeviceId || selectedDeviceId;
+      const started = await visionDetector.startWebcam(
+        video,
+        canvas,
+        mode === 'camera' ? 'environment' : 'user',
+        devId || undefined
+      );
       if (!started) {
         setScanMode(null);
         setScanError(`Unable to access the ${mode}. Please ensure camera access is allowed in your browser settings.`);
+      } else {
+        void refreshVideoDevices();
       }
     } catch (err: any) {
       setScanMode(null);
       setScanError(`Camera error: ${err?.message || 'Access failed. Please check permissions.'}`);
     }
-  }, [gates, selectedGateId]);
+  }, [gates, refreshVideoDevices, selectedDeviceId, selectedGateId]);
 
   const stopLiveScan = useCallback(() => {
     visionDetector.stop();
@@ -400,10 +426,41 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
           <div className="section-icon"><Video size={18} /></div>
           <div>
             <h2>Start live scanning</h2>
-            <p>Use the rear Camera for the venue or the front Webcam for an operator view.</p>
+            <p>Use the rear Camera for the venue, front Webcam, or switch between connected camera devices.</p>
           </div>
         </div>
-        <div className="live-scan-actions">
+        <div className="live-scan-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {availableDevices.length > 0 && (
+            <select
+              value={selectedDeviceId}
+              onChange={(e) => {
+                const devId = e.target.value;
+                setSelectedDeviceId(devId);
+                if (scanMode) {
+                  void startLiveScan(scanMode, devId);
+                }
+              }}
+              style={{
+                background: '#0f172a',
+                color: '#38bdf8',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '8px',
+                padding: '7px 10px',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                outline: 'none',
+                maxWidth: '220px',
+                cursor: 'pointer',
+              }}
+              title="Select camera hardware device"
+            >
+              {availableDevices.map((dev, idx) => (
+                <option key={dev.deviceId || idx} value={dev.deviceId}>
+                  📷 {dev.label ? (dev.label.length > 25 ? `${dev.label.slice(0, 23)}...` : dev.label) : `Camera Device ${idx + 1}`}
+                </option>
+              ))}
+            </select>
+          )}
           <button className="btn btn-secondary" onClick={() => void startLiveScan('camera')} disabled={Boolean(scanMode)}>
             <Camera size={16} /> Camera
           </button>
@@ -502,6 +559,54 @@ export const VisionStreamView: React.FC<VisionStreamViewProps> = ({
           </div>
 
           <div className="video-stage">
+            {scanMode && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+                padding: '7px 14px',
+                background: 'linear-gradient(90deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
+                borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+                fontSize: '0.74rem',
+                color: '#cbd5e1',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ display: 'inline-block', width: '7px', height: '7px', borderRadius: '50%', background: '#10b981' }}></span>
+                  <span><strong>Live Camera Feed Active:</strong> If you see a black screen with a phone icon, select your laptop's <strong>Integrated Camera</strong> from the dropdown above.</span>
+                </div>
+                {availableDevices.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentIdx = availableDevices.findIndex(d => d.deviceId === selectedDeviceId);
+                      const nextIdx = (currentIdx + 1) % availableDevices.length;
+                      const nextDev = availableDevices[nextIdx];
+                      if (nextDev) {
+                        setSelectedDeviceId(nextDev.deviceId);
+                        void startLiveScan(scanMode, nextDev.deviceId);
+                      }
+                    }}
+                    style={{
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#38bdf8',
+                      border: '1px solid rgba(56, 189, 248, 0.4)',
+                      borderRadius: '6px',
+                      padding: '3px 9px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    🔄 Switch Camera Device
+                  </button>
+                )}
+              </div>
+            )}
             <video
               ref={videoRef}
               muted

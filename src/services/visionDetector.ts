@@ -109,6 +109,7 @@ export class VisionDetector {
   private remoteDetectionApiUrl = typeof import.meta !== "undefined"
     ? ((import.meta as any).env?.VITE_DETECTION_API_URL ?? (typeof localStorage !== 'undefined' ? localStorage.getItem('cams-pro-detection-api-url') ?? '' : ''))
     : '';
+  private lastRemoteAttemptTime = 0;
 
   constructor() {
     this.initSimulatedCrowd();
@@ -293,7 +294,22 @@ export class VisionDetector {
     this.loopSimulation();
   }
 
-  public async startWebcam(video: HTMLVideoElement, canvas: HTMLCanvasElement, facingMode: "user" | "environment" = "user"): Promise<boolean> {
+  public async getAvailableVideoDevices(): Promise<MediaDeviceInfo[]> {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return [];
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      return devices.filter((d) => d.kind === "videoinput");
+    } catch {
+      return [];
+    }
+  }
+
+  public async startWebcam(
+    video: HTMLVideoElement,
+    canvas: HTMLCanvasElement,
+    facingMode: "user" | "environment" = "user",
+    deviceId?: string
+  ): Promise<boolean> {
     this.stop();
     this.videoElement = video;
     this.canvasElement = canvas;
@@ -308,20 +324,24 @@ export class VisionDetector {
       video.autoplay = true;
 
       let stream: MediaStream | null = null;
+      const videoConstraint: MediaTrackConstraints = deviceId
+        ? { deviceId: { exact: deviceId } }
+        : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } };
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: { ideal: facingMode } },
+          video: videoConstraint,
           audio: false,
         });
       } catch (e1) {
-        console.warn("Primary camera constraints failed, attempting facingMode fallback:", e1);
+        console.warn("Primary camera constraints failed, attempting fallback:", e1);
         try {
           stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: { ideal: facingMode } },
+            video: deviceId ? { deviceId } : { facingMode: { ideal: facingMode } },
             audio: false,
           });
         } catch (e2) {
-          console.warn("FacingMode fallback failed, attempting generic video: true:", e2);
+          console.warn("Fallback failed, attempting generic video: true:", e2);
           stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false,
@@ -736,6 +756,12 @@ export class VisionDetector {
     const url = this.remoteDetectionApiUrl.trim();
     if (!url) return null;
 
+    const now = performance.now();
+    if (this.remoteApiError && now - this.lastRemoteAttemptTime < 15000) {
+      return null;
+    }
+    this.lastRemoteAttemptTime = now;
+
     try {
       const canvas = document.createElement('canvas');
       canvas.width = width;
@@ -746,21 +772,26 @@ export class VisionDetector {
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b ?? new Blob()), 'image/jpeg', 0.85));
       const base64 = await blobToBase64(blob);
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
+
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ image: base64, width, height, source: 'yolo_crowd' }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         this.remoteApiError = true;
-        this.modelStatus = `Local AI Active (Remote ${response.status})`;
+        this.modelStatus = `Multi-Tier Crowd AI Active (Local)`;
         return null;
       }
       const data = await response.json();
       if (data?.error) {
         this.remoteApiError = true;
-        this.modelStatus = "Local AI Active (Backend error fallback)";
+        this.modelStatus = "Multi-Tier Crowd AI Active (Local)";
         return null;
       }
 
