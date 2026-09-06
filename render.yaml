@@ -1,4 +1,5 @@
 services:
+  # Backend: FastAPI + YOLO Web Service
   - type: web
     name: vityarthi-backend
     runtime: python
