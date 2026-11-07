@@ -13,6 +13,8 @@ import { audioService } from '../../services/audioSynthesizer';
 interface NavbarProps {
   currentTab: 'command_center' | 'public_signage' | 'vision_feed';
   setCurrentTab: (tab: 'command_center' | 'public_signage' | 'vision_feed') => void;
+  language: 'en' | 'hi';
+  setLanguage: (lang: 'en' | 'hi') => void;
   venue: VenueConfig;
   activeAlertCount: number;
   highestRisk: RiskLevel;
@@ -26,6 +28,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   currentTab: _currentTab,
   setCurrentTab: _setCurrentTab,
+  language,
+  setLanguage,
   venue,
   activeAlertCount,
   highestRisk: _highestRisk,
@@ -38,6 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [timeStr, setTimeStr] = useState('');
   const [dateStr, setDateStr] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(audioService.isEnabled());
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
 
   const isAyodhya = venue.id.includes('ayodhya') || venue.id.includes('ram');
 
@@ -146,13 +151,86 @@ export const Navbar: React.FC<NavbarProps> = ({
           <Maximize2 size={14} />
         </button>
 
-        <button
-          onClick={() => {}}
-          style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
-          title="Language / Locale"
-        >
-          <Globe size={14} />
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setLangMenuOpen(!langMenuOpen)}
+            style={{
+              background: langMenuOpen ? 'rgba(0, 184, 148, 0.15)' : 'transparent',
+              border: 'none',
+              color: langMenuOpen ? '#00b894' : '#64748b',
+              padding: '6px 8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 700,
+            }}
+            title="Language / Locale Selection"
+          >
+            <Globe size={14} />
+            <span>{language === 'hi' ? 'हिन्दी' : 'EN'}</span>
+          </button>
+
+          {langMenuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '6px',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                zIndex: 1000,
+                minWidth: '120px',
+                overflow: 'hidden',
+              }}
+            >
+              <button
+                onClick={() => {
+                  setLanguage('en');
+                  setLangMenuOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: language === 'en' ? '#f1f5f9' : 'transparent',
+                  border: 'none',
+                  textAlign: 'left',
+                  fontSize: '12px',
+                  fontWeight: language === 'en' ? 700 : 500,
+                  color: language === 'en' ? '#00b894' : '#334155',
+                  cursor: 'pointer',
+                }}
+              >
+                English (EN)
+              </button>
+              <button
+                onClick={() => {
+                  setLanguage('hi');
+                  setLangMenuOpen(false);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  background: language === 'hi' ? '#f1f5f9' : 'transparent',
+                  border: 'none',
+                  textAlign: 'left',
+                  fontSize: '12px',
+                  fontWeight: language === 'hi' ? 700 : 500,
+                  color: language === 'hi' ? '#00b894' : '#334155',
+                  cursor: 'pointer',
+                  borderTop: '1px solid #f1f5f9',
+                }}
+              >
+                हिन्दी (Hindi)
+              </button>
+            </div>
+          )}
+        </div>
 
         <button
           onClick={onOpenSetup}

@@ -25,6 +25,13 @@ import { visionDetector } from './services/visionDetector';
 import { Sidebar } from './components/Sidebar/Sidebar';
 
 export const App: React.FC = () => {
+  const [language, setLanguage] = useState<'en' | 'hi'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('vityarthi-language') as 'en' | 'hi') || 'en';
+    }
+    return 'en';
+  });
+
   const [currentTab, setCurrentTab] = useState<'command_center' | 'public_signage' | 'vision_feed'>('command_center');
   const [visionMedia, setVisionMedia] = useState<Record<string, VisionMediaItem[]>>({});
   const [venue, setVenue] = useState<VenueConfig>(() => dataIngestionService.getVenue());
@@ -61,6 +68,10 @@ export const App: React.FC = () => {
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('vityarthi-language', language);
+  }, [language]);
 
   const handleOpenBroadcastForGate = (gateId: string) => {
     setTargetedGateId(gateId);
@@ -107,6 +118,8 @@ export const App: React.FC = () => {
         <Navbar
           currentTab={currentTab}
           setCurrentTab={setCurrentTab}
+          language={language}
+          setLanguage={setLanguage}
           venue={venue}
           activeAlertCount={activeAlerts.length}
           highestRisk={highestRisk}
