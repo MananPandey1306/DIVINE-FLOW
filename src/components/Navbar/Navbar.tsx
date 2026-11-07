@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { VenueConfig, RiskLevel } from '../../types';
 import { audioService } from '../../services/audioSynthesizer';
+import { translations } from '../../i18n';
 
 interface NavbarProps {
   currentTab: 'command_center' | 'public_signage' | 'vision_feed';
@@ -43,6 +44,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   const [dateStr, setDateStr] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(audioService.isEnabled());
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+
+  const t = translations[language];
 
   const isAyodhya = venue.id.includes('ayodhya') || venue.id.includes('ram');
 
@@ -126,10 +129,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           fontWeight: 600,
           position: 'relative',
         }}
-        title="Notifications & Incident Logs"
+        title={t.notification}
       >
         <Bell size={15} />
-        <span>Notification</span>
+        <span>{t.notification}</span>
         <span
           style={{
             width: 7,
@@ -146,7 +149,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={handleToggleFullscreen}
           style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
-          title="Toggle Fullscreen"
+          title={t.fullscreen}
         >
           <Maximize2 size={14} />
         </button>
@@ -167,7 +170,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               fontSize: '12px',
               fontWeight: 700,
             }}
-            title="Language / Locale Selection"
+            title={t.language}
           >
             <Globe size={14} />
             <span>{language === 'hi' ? 'हिन्दी' : 'EN'}</span>
@@ -235,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={onOpenSetup}
           style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
-          title="App Grid & Modules"
+          title={t.appModules}
         >
           <Grid size={14} />
         </button>
@@ -243,7 +246,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         <button
           onClick={toggleSound}
           style={{ background: 'transparent', border: 'none', color: '#64748b', padding: '6px', cursor: 'pointer' }}
-          title={soundEnabled ? 'Mute Audio' : 'Unmute Audio'}
+          title={soundEnabled ? t.mute : t.unmute}
         >
           <Moon size={14} />
         </button>
@@ -279,10 +282,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-            Admin Commander
+            {t.admin}
           </span>
           <span style={{ fontSize: '10px', color: '#64748b' }}>
-            {isAyodhya ? 'Ayodhya ICCC' : 'Somnath ICCC'}
+            {isAyodhya ? t.ayodhya : t.somnath}
           </span>
         </div>
         <ChevronDown size={13} color="#64748b" />
